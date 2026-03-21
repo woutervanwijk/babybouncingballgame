@@ -192,53 +192,29 @@
                     this.ball.body.setCircle(40); // 80% of real size (50) for soft collision
                     
                     // Create clouds (NO GRAVITY - only move when hit)
-                    this.clouds = [];
-                    
-                    // Cloud 1 - use first texture (position in upper 70% of screen)
+                                        this.clouds = [];
                     const playAreaHeight = this.gameHeight - this.grassHeight;
-                    const cloud1 = this.physics.add.sprite(
-                        Phaser.Math.Between(50, this.gameWidth - 50),
-                        Phaser.Math.Between(50, playAreaHeight * 0.7),
-                        'cloud'
-                    );
-                    cloud1.setBounce(1.0);
-                    cloud1.setCollideWorldBounds(true);
-                    cloud1.setImmovable(true);
-                    cloud1.setVelocity(0, 0);
-                    cloud1.body.allowGravity = false;
-                    cloud1.body.setCircle(50);
-                    // No startup rotation - remove cloud1.setAngle line
-                    this.clouds.push(cloud1);
-                    
-                    // Cloud 2 - use second texture
-                    const cloud2 = this.physics.add.sprite(
-                        Phaser.Math.Between(50, this.gameWidth - 50),
-                        Phaser.Math.Between(50, playAreaHeight * 0.7),
-                        'cloud2'
-                    );
-                    cloud2.setBounce(1.0);
-                    cloud2.setCollideWorldBounds(true);
-                    cloud2.setImmovable(true);
-                    cloud2.setVelocity(0, 0);
-                    cloud2.body.allowGravity = false;
-                    cloud2.body.setCircle(50);
-                    // No startup rotation - remove cloud2.setAngle line
-                    this.clouds.push(cloud2);
-                    
-                    // Cloud 3 - use third texture
-                    const cloud3 = this.physics.add.sprite(
-                        Phaser.Math.Between(50, this.gameWidth - 50),
-                        Phaser.Math.Between(50, playAreaHeight * 0.7),
-                        'cloud3'
-                    );
-                    cloud3.setBounce(1.0);
-                    cloud3.setCollideWorldBounds(true);
-                    cloud3.setImmovable(true);
-                    cloud3.setVelocity(0, 0);
-                    cloud3.body.allowGravity = false;
-                    cloud3.body.setCircle(50);
-                    // No startup rotation - remove cloud3.setAngle line
-                    this.clouds.push(cloud3);
+
+                    // Determine number of clouds based on screen width
+                    const cloudCount = this.gameWidth > 1200 ? 6 : (this.gameWidth > 1000 ? 4 : 3);
+                    const cloudTextures = ['cloud', 'cloud2', 'cloud3'];
+
+                    // Create clouds based on count
+                    for (let i = 0; i < cloudCount; i++) {
+                        const texture = cloudTextures[i % cloudTextures.length];
+                        const cloud = this.physics.add.sprite(
+                            Phaser.Math.Between(50, this.gameWidth - 50),
+                            Phaser.Math.Between(50, playAreaHeight * 0.7),
+                            texture
+                        );
+                        cloud.setBounce(1.0);
+                        cloud.setCollideWorldBounds(true);
+                        cloud.setImmovable(true);
+                        cloud.setVelocity(0, 0);
+                        cloud.body.allowGravity = false;
+                        cloud.body.setCircle(50);
+                        this.clouds.push(cloud);
+                    }
                     
                     // Create sun (NO GRAVITY - only moves when hit)
                     this.sun = this.physics.add.sprite(
@@ -574,6 +550,17 @@
                         }
                     }
                     
+                    // Limit ball bounce to half of grass height
+                    const maxBounceHeight = this.gameHeight - this.grassHeight/2;
+                    if (this.ball.y > maxBounceHeight) {
+                        this.ball.y = maxBounceHeight;
+                        if (this.ball.body.velocity) {
+                            // Bounce the ball with reduced velocity
+                            const bounceVelocityY = -Math.abs(this.ball.body.velocity.y) * 0.6;
+                            const bounceVelocityX = this.ball.body.velocity.x * 0.9;
+                            this.ball.setVelocity(bounceVelocityX, bounceVelocityY);
+                        }
+                    }
                     // Remove manual border collision handling - let Phaser handle it naturally
                     // The ball's collideWorldBounds property will handle border collisions properly
                     
