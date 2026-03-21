@@ -1,0 +1,589 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Baby Ball Game</title>
+    <style>
+        body {
+            margin: 0;
+            overflow: hidden;
+            font-family: Arial, sans-serif;
+        }
+        #game-container {
+            position: relative;
+            width: 100vw;
+            height: 100vh;
+            background: linear-gradient(to bottom, #87CEEB 0%, #87CEEB 80%, #7CFC00 80%, #7CFC00 100%);
+        }
+        #ball {
+            position: absolute;
+            width: 100px;
+            height: 100px;
+            background-color: #FF6347;
+            border-radius: 50%;
+            left: calc(50% - 50px);
+        }
+        #sun {
+            position: absolute;
+            width: 80px;
+            height: 80px;
+            background-color: #FFD700;
+            border-radius: 50%;
+            top: 5%;
+            right: 10%;
+        }
+        .cloud {
+            position: absolute;
+            width: 150px;
+            height: 60px;
+            background-color: #FFFFFF;
+            border-radius: 50px;
+        }
+        .cloud::before, .cloud::after {
+            content: "";
+            position: absolute;
+            background-color: #FFFFFF;
+            border-radius: 50px;
+        }
+        .cloud::before {
+            width: 80px;
+            height: 80px;
+            top: -30px;
+            left: 20px;
+        }
+        .cloud::after {
+            width: 100px;
+            height: 50px;
+            top: -10px;
+            right: -20px;
+        }
+    </style>
+</head>
+<body>
+    <div id="game-container">
+        <div id="sun"></div>
+        <div class="cloud" id="cloud1"></div>
+        <div class="cloud" id="cloud2"></div>
+        <div class="cloud" id="cloud3"></div>
+        <div id="ball"></div>
+    </div>
+    <script>
+        const ball = document.getElementById('ball');
+        const cloud1 = document.getElementById('cloud1');
+        const cloud2 = document.getElementById('cloud2');
+        const cloud3 = document.getElementById('cloud3');
+        const sun = document.getElementById('sun');
+        let isFalling = false;
+        let velocityY = 0;
+        let velocityX = 0;
+        let cloud1VelocityY = 0;
+        let cloud1VelocityX = 0;
+        let cloud2VelocityY = 0;
+        let cloud2VelocityX = 0;
+        let cloud3VelocityY = 0;
+        let cloud3VelocityX = 0;
+        let sunVelocityY = 0;
+        let sunVelocityX = 0;
+        let physicsActive = false;
+        const gravity = 0.3;
+        const friction = 0.97;
+        const bounceFactor = 0.6;
+        const cloudFriction = 0.992;
+        const sunFriction = 0.992;
+        const borderBounceFactor = 0.95;
+        const minVelocity = 0.5;
+        const cloudBorderBounceFactor = 1.0;
+        const sunBorderBounceFactor = 1.0;
+        
+        function applyPhysics() {
+            if (isFalling) {
+                velocityY += gravity;
+                velocityX *= friction;
+                
+                let ballTop = parseFloat(ball.style.top) || (window.innerHeight * 0.8 - 50);
+                let ballLeft = parseFloat(ball.style.left) || (window.innerWidth / 2 - 50);
+                
+                ballTop += velocityY;
+                ballLeft += velocityX;
+                
+                // Grass boundary is at 80% of screen height
+                const grassBoundary = window.innerHeight * 0.8;
+                
+                // Check for bouncing on the grass (ball center should not go below grass boundary)
+                if (ballTop + 50 >= grassBoundary) {
+                    ballTop = grassBoundary - 50;
+                    velocityY = -velocityY * bounceFactor;
+                    velocityX *= 0.8;
+                    if (Math.abs(velocityY) < 2) {
+                        velocityY = 0;
+                        velocityX = 0;
+                        isFalling = false;
+                    }
+                }
+                
+                // Check for bouncing on the sides
+                if (ballLeft <= 0 || ballLeft >= window.innerWidth - 100) {
+                    velocityX = -velocityX * 0.8;
+                }
+                
+                // Ensure ball stays above grass
+                ballTop = Math.min(ballTop, grassBoundary - 50);
+                
+                ball.style.top = ballTop + 'px';
+                ball.style.left = ballLeft + 'px';
+                
+                // Only apply cloud and sun physics if they have velocity (been touched)
+                if (physicsActive) {
+                    applyCloudPhysics(cloud1);
+                    applyCloudPhysics(cloud2);
+                    applyCloudPhysics(cloud3);
+                    applySunPhysics();
+                }
+                
+                // Check for collision with clouds
+                checkCloudCollision(cloud1, ballLeft, ballTop, 100, 100);
+                checkCloudCollision(cloud2, ballLeft, ballTop, 100, 100);
+                checkCloudCollision(cloud3, ballLeft, ballTop, 100, 100);
+                checkSunCollision(ballLeft, ballTop, 100, 100);
+                
+                // Check for cloud collisions (only if physics is active)
+                if (physicsActive) {
+                    checkCloudCloudCollision(cloud1, cloud2);
+                    checkCloudCloudCollision(cloud1, cloud3);
+                    checkCloudCloudCollision(cloud2, cloud3);
+                    checkCloudSunCollision(cloud1);
+                    checkCloudSunCollision(cloud2);
+                    checkCloudSunCollision(cloud3);
+                }
+                
+                requestAnimationFrame(applyPhysics);
+            }
+        }
+        
+        function applyCloudPhysics(cloud) {
+            let cloudTop = parseFloat(cloud.style.top) || 0;
+            let cloudLeft = parseFloat(cloud.style.left) || 0;
+            
+            // Get the appropriate velocity for this cloud
+            let velX, velY;
+            if (cloud === cloud1) {
+                velX = cloud1VelocityX;
+                velY = cloud1VelocityY;
+            } else if (cloud === cloud2) {
+                velX = cloud2VelocityX;
+                velY = cloud2VelocityY;
+            } else {
+                velX = cloud3VelocityX;
+                velY = cloud3VelocityY;
+            }
+            
+            cloudTop += velY;
+            cloudLeft += velX;
+            
+            const cloudRect = cloud.getBoundingClientRect();
+            const grassBoundary = window.innerHeight * 0.8;
+            
+            // Check for bouncing on the top (perfectly elastic collision)
+            if (cloudTop <= 0) {
+                const newVelY = -velY * cloudBorderBounceFactor;
+                if (Math.abs(newVelY) < minVelocity) {
+                    if (cloud === cloud1) cloud1VelocityY = -minVelocity * Math.sign(velY);
+                    else if (cloud === cloud2) cloud2VelocityY = -minVelocity * Math.sign(velY);
+                    else cloud3VelocityY = -minVelocity * Math.sign(velY);
+                } else {
+                    if (cloud === cloud1) cloud1VelocityY = newVelY;
+                    else if (cloud === cloud2) cloud2VelocityY = newVelY;
+                    else cloud3VelocityY = newVelY;
+                }
+                cloudTop = 0;
+            }
+            
+            // Check for bouncing on the grass (perfectly elastic collision)
+            if (cloudTop + cloudRect.height >= grassBoundary) {
+                cloudTop = grassBoundary - cloudRect.height;
+                const newVelY = -velY * cloudBorderBounceFactor;
+                if (Math.abs(newVelY) < minVelocity) {
+                    if (cloud === cloud1) cloud1VelocityY = minVelocity * Math.sign(velY);
+                    else if (cloud === cloud2) cloud2VelocityY = minVelocity * Math.sign(velY);
+                    else cloud3VelocityY = minVelocity * Math.sign(velY);
+                } else {
+                    if (cloud === cloud1) cloud1VelocityY = newVelY;
+                    else if (cloud === cloud2) cloud2VelocityY = newVelY;
+                    else cloud3VelocityY = newVelY;
+                }
+            }
+            
+            // Check for bouncing on the sides (perfectly elastic collision)
+            if (cloudLeft <= 0 || cloudLeft >= window.innerWidth - cloudRect.width) {
+                const newVelX = -velX * cloudBorderBounceFactor;
+                if (Math.abs(newVelX) < minVelocity) {
+                    if (cloud === cloud1) cloud1VelocityX = minVelocity * Math.sign(velX);
+                    else if (cloud === cloud2) cloud2VelocityX = minVelocity * Math.sign(velX);
+                    else cloud3VelocityX = minVelocity * Math.sign(velX);
+                } else {
+                    if (cloud === cloud1) cloud1VelocityX = newVelX;
+                    else if (cloud === cloud2) cloud2VelocityX = newVelX;
+                    else cloud3VelocityX = newVelX;
+                }
+            }
+            
+            // Keep clouds within screen bounds (above grass)
+            cloudTop = Math.max(0, Math.min(grassBoundary - cloudRect.height, cloudTop));
+            cloudLeft = Math.max(0, Math.min(window.innerWidth - cloudRect.width, cloudLeft));
+            
+            cloud.style.top = cloudTop + 'px';
+            cloud.style.left = cloudLeft + 'px';
+            
+            // Apply appropriate friction to cloud movement
+            if (cloud === cloud1) {
+                cloud1VelocityX = velX * cloudFriction;
+                cloud1VelocityY = velY * cloudFriction;
+            } else if (cloud === cloud2) {
+                cloud2VelocityX = velX * cloudFriction;
+                cloud2VelocityY = velY * cloudFriction;
+            } else {
+                cloud3VelocityX = velX * cloudFriction;
+                cloud3VelocityY = velY * cloudFriction;
+            }
+        }
+        
+        function applySunPhysics() {
+            let sunTop = parseFloat(sun.style.top) || 0;
+            let sunLeft = parseFloat(sun.style.left) || 0;
+            
+            // Sun moves at half the speed of clouds
+            sunTop += sunVelocityY;
+            sunLeft += sunVelocityX;
+            
+            const sunRect = sun.getBoundingClientRect();
+            const grassBoundary = window.innerHeight * 0.8;
+            
+            // Check for bouncing on the top (perfectly elastic collision)
+            if (sunTop <= 0) {
+                const newVelY = -sunVelocityY * sunBorderBounceFactor;
+                if (Math.abs(newVelY) < minVelocity) {
+                    sunVelocityY = -minVelocity * Math.sign(sunVelocityY);
+                } else {
+                    sunVelocityY = newVelY;
+                }
+                sunTop = 0;
+            }
+            
+            // Check for bouncing on the grass (perfectly elastic collision)
+            if (sunTop + sunRect.height >= grassBoundary) {
+                sunTop = grassBoundary - sunRect.height;
+                const newVelY = -sunVelocityY * sunBorderBounceFactor;
+                if (Math.abs(newVelY) < minVelocity) {
+                    sunVelocityY = minVelocity * Math.sign(sunVelocityY);
+                } else {
+                    sunVelocityY = newVelY;
+                }
+            }
+            
+            // Check for bouncing on the sides (perfectly elastic collision)
+            if (sunLeft <= 0 || sunLeft >= window.innerWidth - sunRect.width) {
+                const newVelX = -sunVelocityX * sunBorderBounceFactor;
+                if (Math.abs(newVelX) < minVelocity) {
+                    sunVelocityX = minVelocity * Math.sign(sunVelocityX);
+                } else {
+                    sunVelocityX = newVelX;
+                }
+            }
+            
+            // Keep sun within screen bounds (above grass)
+            sunTop = Math.max(0, Math.min(grassBoundary - sunRect.height, sunTop));
+            sunLeft = Math.max(0, Math.min(window.innerWidth - sunRect.width, sunLeft));
+            
+            sun.style.top = sunTop + 'px';
+            sun.style.left = sunLeft + 'px';
+            
+            // Apply appropriate friction to sun movement
+            sunVelocityX *= sunFriction;
+            sunVelocityY *= sunFriction;
+        }
+        
+        function checkSunCollision(ballLeft, ballTop, ballWidth, ballHeight) {
+            const sunRect = sun.getBoundingClientRect();
+            const ballRect = {
+                left: ballLeft,
+                top: ballTop,
+                right: ballLeft + ballWidth,
+                bottom: ballTop + ballHeight
+            };
+            
+            if (ballRect.right > sunRect.left && ballRect.left < sunRect.right &&
+                ballRect.bottom > sunRect.top && ballRect.top < sunRect.bottom) {
+                
+                // Calculate angle for natural bounce physics (sun should bounce, not follow)
+                const centerX = ballLeft + ballWidth/2;
+                const centerY = ballTop + ballHeight/2;
+                const sunCenterX = sunRect.left + sunRect.width/2;
+                const sunCenterY = sunRect.top + sunRect.height/2;
+                
+                const angleX = centerX - sunCenterX;
+                const angleY = centerY - sunCenterY;
+                const distance = Math.sqrt(angleX * angleX + angleY * angleY);
+                
+                // Normalize and apply elastic collision with angle
+                const normalX = angleX / distance;
+                const normalY = angleY / distance;
+                
+                // Calculate relative velocity
+                const relVelX = velocityX;
+                const relVelY = velocityY;
+                
+                // Dot product of relative velocity and normal
+                const dotProduct = relVelX * normalX + relVelY * normalY;
+                
+                // Apply elastic collision physics (sun bounces away)
+                const bounceStrength = 1.3;
+                sunVelocityX = velocityX * 0.4 + (1 + bounceStrength) * dotProduct * normalX;
+                sunVelocityY = velocityY * 0.4 + (1 + bounceStrength) * dotProduct * normalY;
+                
+                // Ensure minimum velocity to prevent sticking
+                if (Math.abs(sunVelocityX) < minVelocity) {
+                    sunVelocityX = minVelocity * Math.sign(sunVelocityX || 1);
+                }
+                if (Math.abs(sunVelocityY) < minVelocity) {
+                    sunVelocityY = minVelocity * Math.sign(sunVelocityY || 1);
+                }
+                
+                // Activate physics since the sun has been touched
+                physicsActive = true;
+            }
+        }
+        
+        function checkCloudSunCollision(cloud) {
+            const cloudRect = cloud.getBoundingClientRect();
+            const sunRect = sun.getBoundingClientRect();
+            
+            if (cloudRect.right > sunRect.left && cloudRect.left < sunRect.right &&
+                cloudRect.bottom > sunRect.top && cloudRect.top < sunRect.bottom) {
+                
+                // Calculate centers for angle-based bounce
+                const cloudCenterX = cloudRect.left + cloudRect.width/2;
+                const cloudCenterY = cloudRect.top + cloudRect.height/2;
+                const sunCenterX = sunRect.left + sunRect.width/2;
+                const sunCenterY = sunRect.top + sunRect.height/2;
+                
+                const angleX = cloudCenterX - sunCenterX;
+                const angleY = cloudCenterY - sunCenterY;
+                const distance = Math.sqrt(angleX * angleX + angleY * angleY);
+                
+                // Transfer velocity between cloud and sun with more pronounced bounce
+                let cloudVelX, cloudVelY;
+                if (cloud === cloud1) {
+                    cloudVelX = cloud1VelocityX;
+                    cloudVelY = cloud1VelocityY;
+                } else if (cloud === cloud2) {
+                    cloudVelX = cloud2VelocityX;
+                    cloudVelY = cloud2VelocityY;
+                } else {
+                    cloudVelX = cloud3VelocityX;
+                    cloudVelY = cloud3VelocityY;
+                }
+                
+                // Transfer velocity with angle-based bounce (more pronounced)
+                const transferFactor = 0.3;
+                sunVelocityX += cloudVelX * transferFactor + (angleX/distance * 4);
+                sunVelocityY += cloudVelY * transferFactor + (angleY/distance * 4);
+                
+                // Also affect the cloud (at half speed since sun is slower, but more pronounced)
+                const cloudTransferFactor = 0.15;
+                if (cloud === cloud1) {
+                    cloud1VelocityX += sunVelocityX * cloudTransferFactor + (angleX/distance * 3);
+                    cloud1VelocityY += sunVelocityY * cloudTransferFactor + (angleY/distance * 3);
+                } else if (cloud === cloud2) {
+                    cloud2VelocityX += sunVelocityX * cloudTransferFactor + (angleX/distance * 3);
+                    cloud2VelocityY += sunVelocityY * cloudTransferFactor + (angleY/distance * 3);
+                } else {
+                    cloud3VelocityX += sunVelocityX * cloudTransferFactor + (angleX/distance * 3);
+                    cloud3VelocityY += sunVelocityY * cloudTransferFactor + (angleY/distance * 3);
+                }
+            }
+        }
+        
+        function checkCloudCollision(cloud, ballLeft, ballTop, ballWidth, ballHeight) {
+            const cloudRect = cloud.getBoundingClientRect();
+            const ballRect = {
+                left: ballLeft,
+                top: ballTop,
+                right: ballLeft + ballWidth,
+                bottom: ballTop + ballHeight
+            };
+            
+            if (ballRect.right > cloudRect.left && ballRect.left < cloudRect.right &&
+                ballRect.bottom > cloudRect.top && ballRect.top < cloudRect.bottom) {
+                
+                // Set cloud velocity based on ball velocity with perfect elastic collision
+                // Calculate angle for natural bounce physics
+                const centerX = ballLeft + ballWidth/2;
+                const centerY = ballTop + ballHeight/2;
+                const cloudCenterX = cloudRect.left + cloudRect.width/2;
+                const cloudCenterY = cloudRect.top + cloudRect.height/2;
+                
+                // Calculate direction from ball to cloud for natural bounce angle
+                const angleX = centerX - cloudCenterX;
+                const angleY = centerY - cloudCenterY;
+                const distance = Math.sqrt(angleX * angleX + angleY * angleY);
+                
+                // Normalize and apply elastic collision with angle
+                // Clouds should bounce away naturally without gravity effects
+                const normalX = angleX / distance;
+                const normalY = angleY / distance;
+                
+                // Calculate relative velocity
+                const relVelX = velocityX;
+                const relVelY = velocityY;
+                
+                // Dot product of relative velocity and normal
+                const dotProduct = relVelX * normalX + relVelY * normalY;
+                
+                // Apply elastic collision physics
+                const bounceStrength = 1.2; // Slightly more than perfect elastic
+                if (cloud === cloud1) {
+                    cloud1VelocityX = velocityX + (1 + bounceStrength) * dotProduct * normalX;
+                    cloud1VelocityY = velocityY + (1 + bounceStrength) * dotProduct * normalY;
+                } else if (cloud === cloud2) {
+                    cloud2VelocityX = velocityX + (1 + bounceStrength) * dotProduct * normalX;
+                    cloud2VelocityY = velocityY + (1 + bounceStrength) * dotProduct * normalY;
+                } else if (cloud === cloud3) {
+                    cloud3VelocityX = velocityX + (1 + bounceStrength) * dotProduct * normalX;
+                    cloud3VelocityY = velocityY + (1 + bounceStrength) * dotProduct * normalY;
+                }
+                
+                // Activate physics since this cloud has been touched
+                physicsActive = true;
+            }
+        }
+        
+        function checkCloudCloudCollision(cloudA, cloudB) {
+            const rectA = cloudA.getBoundingClientRect();
+            const rectB = cloudB.getBoundingClientRect();
+            
+            if (rectA.right > rectB.left && rectA.left < rectB.right &&
+                rectA.bottom > rectB.top && rectA.top < rectB.bottom) {
+                
+                // Calculate centers for angle-based bounce
+                const centerAX = rectA.left + rectA.width/2;
+                const centerAY = rectA.top + rectA.height/2;
+                const centerBX = rectB.left + rectB.width/2;
+                const centerBY = rectB.top + rectB.height/2;
+                
+                const angleX = centerAX - centerBX;
+                const angleY = centerAY - centerBY;
+                const distance = Math.sqrt(angleX * angleX + angleY * angleY);
+                
+                // Get velocities with more pronounced bounce
+                let velAX, velAY;
+                if (cloudA === cloud1) {
+                    velAX = cloud1VelocityX;
+                    velAY = cloud1VelocityY;
+                } else if (cloudA === cloud2) {
+                    velAX = cloud2VelocityX;
+                    velAY = cloud2VelocityY;
+                } else {
+                    velAX = cloud3VelocityX;
+                    velAY = cloud3VelocityY;
+                }
+                
+                // Transfer velocity with angle-based bounce (more pronounced)
+                const transferFactor = 0.3;
+                if (cloudB === cloud1) {
+                    cloud1VelocityX += velAX * transferFactor + (angleX/distance * 5);
+                    cloud1VelocityY += velAY * transferFactor + (angleY/distance * 5);
+                } else if (cloudB === cloud2) {
+                    cloud2VelocityX += velAX * transferFactor + (angleX/distance * 5);
+                    cloud2VelocityY += velAY * transferFactor + (angleY/distance * 5);
+                } else {
+                    cloud3VelocityX += velAX * transferFactor + (angleX/distance * 5);
+                    cloud3VelocityY += velAY * transferFactor + (angleY/distance * 5);
+                }
+                
+                // Also affect cloudA for more realistic collision
+                if (cloudA === cloud1) {
+                    cloud1VelocityX -= velAX * 0.1;
+                    cloud1VelocityY -= velAY * 0.1;
+                } else if (cloudA === cloud2) {
+                    cloud2VelocityX -= velAX * 0.1;
+                    cloud2VelocityY -= velAY * 0.1;
+                } else {
+                    cloud3VelocityX -= velAX * 0.1;
+                    cloud3VelocityY -= velAY * 0.1;
+                }
+            }
+        }
+        
+        function throwBall() {
+            // Calculate minimum vertical velocity needed to reach half screen height
+            const minVerticalDistance = window.innerHeight * 0.4; // Half of screen height
+            const gravityAcceleration = 0.3;
+            
+            // Using kinematic equation: v² = u² + 2as (where final velocity v = 0 at peak)
+            // So u = sqrt(2 * gravity * distance)
+            const minVerticalVelocity = Math.sqrt(2 * gravityAcceleration * minVerticalDistance);
+            
+            // Generate random angle between 20 and 160 degrees (left or right)
+            const randomAngle = Math.random() * 140 + 20; // 20 to 160 degrees
+            const angleInRadians = randomAngle * Math.PI / 180;
+            
+            // Convert angle to velocity components, ensuring minimum vertical movement
+            const baseSpeed = Math.random() * 8 + 7; // Random speed between 7 and 15
+            velocityX = Math.cos(angleInRadians) * baseSpeed;
+            
+            // Calculate vertical component, ensuring it's at least enough for half screen height
+            velocityY = -Math.sin(angleInRadians) * baseSpeed * 2; // Double vertical component
+            
+            // Ensure minimum vertical velocity
+            if (Math.abs(velocityY) < minVerticalVelocity) {
+                velocityY = -minVerticalVelocity * Math.sign(velocityY);
+            }
+            
+            // Randomly choose left or right direction
+            if (Math.random() > 0.5) {
+                velocityX = -velocityX;
+            }
+            
+            // Set ball position to be on the grass if not already positioned
+            if (!ball.style.top) {
+                ball.style.top = (window.innerHeight * 0.8 - 50) + 'px';
+                ball.style.left = (window.innerWidth / 2 - 50) + 'px';
+            }
+            
+            isFalling = true;
+            applyPhysics();
+        }
+        
+        // Initialize ball position on the grass
+        ball.style.top = (window.innerHeight * 0.8 - 50) + 'px';
+        ball.style.left = (window.innerWidth / 2 - 50) + 'px';
+        
+        function initializeClouds() {
+            const containerWidth = window.innerWidth;
+            const containerHeight = window.innerHeight;
+            const grassBoundary = containerHeight * 0.8;
+            
+            // Position clouds randomly in the sky area (above grass)
+            cloud1.style.top = Math.random() * (grassBoundary - 100) + 'px';
+            cloud1.style.left = Math.random() * (containerWidth - 200) + 'px';
+            
+            cloud2.style.top = Math.random() * (grassBoundary - 100) + 'px';
+            cloud2.style.left = Math.random() * (containerWidth - 200) + 'px';
+            
+            cloud3.style.top = Math.random() * (grassBoundary - 100) + 'px';
+            cloud3.style.left = Math.random() * (containerWidth - 200) + 'px';
+            
+            // Position sun randomly like clouds
+            sun.style.top = Math.random() * (grassBoundary - 100) + 'px';
+            sun.style.left = Math.random() * (containerWidth - 100) + 'px';
+        }
+        
+        initializeClouds();
+        
+        document.addEventListener('keydown', throwBall);
+        document.addEventListener('mousedown', throwBall);
+        document.addEventListener('touchstart', throwBall);
+    </script>
+</body>
+</html>

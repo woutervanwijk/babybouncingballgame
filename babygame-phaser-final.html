@@ -1,0 +1,259 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Baby Ball Game - Final Version</title>
+    <style>
+        body {
+            margin: 0;
+            padding: 0;
+            overflow: hidden;
+        }
+    </style>
+</head>
+<body>
+    <!-- Load Phaser from local directory -->
+    <script src="phaser/phaser.min.js"></script>
+    
+    <script>
+        // Check if Phaser is loaded
+        if (typeof Phaser === 'undefined') {
+            document.body.innerHTML = '<h1>Error: Phaser not loaded</h1>' +
+                '<p>Please make sure phaser.min.js is in the phaser directory.</p>';
+        } else {
+            class BabyBallGame extends Phaser.Scene {
+                constructor() {
+                    super({ key: 'BabyBallGame' });
+                }
+                
+                preload() {
+                    // Create better-looking cloud texture
+                    this.load.image('cloud', this.createCloudTexture());
+                    this.load.image('sun', this.createSunTexture());
+                    this.load.image('ball', this.createBallTexture());
+                }
+                
+                createBallTexture() {
+                    const graphics = this.make.graphics();
+                    graphics.fillStyle(0xFF6347); // Tomato red
+                    graphics.fillCircle(50, 50, 50);
+                    graphics.generateTexture('ball', 100, 100);
+                    graphics.destroy();
+                    return 'ball';
+                }
+                
+                createCloudTexture() {
+                    const graphics = this.make.graphics();
+                    graphics.fillStyle(0xFFFFFF);
+                    
+                    // Create a more realistic cloud shape with multiple circles
+                    // Main body
+                    graphics.fillCircle(75, 50, 40);
+                    // Left puff
+                    graphics.fillCircle(40, 40, 35);
+                    // Right puff
+                    graphics.fillCircle(100, 35, 30);
+                    // Top puff
+                    graphics.fillCircle(60, 20, 25);
+                    // Bottom puff
+                    graphics.fillCircle(90, 65, 28);
+                    
+                    graphics.generateTexture('cloud', 150, 100);
+                    graphics.destroy();
+                    return 'cloud';
+                }
+                
+                createSunTexture() {
+                    const graphics = this.make.graphics();
+                    graphics.fillStyle(0xFFD700); // Gold
+                    graphics.fillCircle(40, 40, 40);
+                    graphics.generateTexture('sun', 80, 80);
+                    graphics.destroy();
+                    return 'sun';
+                }
+                
+                create() {
+                    // Set up physics - only ball has gravity
+                    this.physics.world.gravity.y = 300;
+                    
+                    // Create grass boundary (20% of height)
+                    const grassHeight = this.game.config.height * 0.2;
+                    this.add.rectangle(0, this.game.config.height - grassHeight/2, 
+                        this.game.config.width, grassHeight, 0x7CFC00)
+                        .setOrigin(0, 0.5);
+                    
+                    // Create sky background
+                    this.add.rectangle(0, 0, this.game.config.width, this.game.config.height * 0.8, 0x87CEEB)
+                        .setOrigin(0, 0);
+                    
+                    // Create ball (only object with gravity)
+                    this.ball = this.physics.add.sprite(this.game.config.width/2, this.game.config.height * 0.8 - 50, 'ball');
+                    this.ball.setBounce(0.6);
+                    this.ball.setCollideWorldBounds(true);
+                    this.ball.body.setCircle(50);
+                    
+                    // Create clouds (NO GRAVITY - only move when hit)
+                    this.clouds = [];
+                    for (let i = 0; i < 3; i++) {
+                        const cloud = this.physics.add.sprite(
+                            Phaser.Math.Between(50, this.game.config.width - 50),
+                            Phaser.Math.Between(50, this.game.config.height * 0.7),
+                            'cloud'
+                        );
+                        cloud.setBounce(1.0);
+                        cloud.setCollideWorldBounds(true);
+                        cloud.setImmovable(true);
+                        cloud.setVelocity(0, 0);
+                        
+                        // Remove gravity from this object
+                        cloud.body.allowGravity = false;
+                        
+                        // Set a custom hit circle
+                        cloud.body.setCircle(50); // Smaller hit circle than visual
+                        this.clouds.push(cloud);
+                    }
+                    
+                    // Create sun (NO GRAVITY - only moves when hit)
+                    this.sun = this.physics.add.sprite(
+                        Phaser.Math.Between(50, this.game.config.width - 50),
+                        Phaser.Math.Between(50, this.game.config.height * 0.7),
+                        'sun'
+                    );
+                    this.sun.setBounce(1.0);
+                    this.sun.setCollideWorldBounds(true);
+                    this.sun.setImmovable(true);
+                    this.sun.setVelocity(0, 0);
+                    
+                    // Remove gravity from sun
+                    this.sun.body.allowGravity = false;
+                    this.sun.body.setCircle(40);
+                    
+                    // Set up collisions
+                    this.physics.add.collider(this.ball, this.clouds, this.handleBallCloudCollision, null, this);
+                    this.physics.add.collider(this.ball, this.sun, this.handleBallSunCollision, null, this);
+                    this.physics.add.collider(this.clouds, this.clouds);
+                    this.physics.add.collider(this.clouds, this.sun);
+                    
+                    // Set up input
+                    this.input.keyboard.on('keydown', this.throwBall, this);
+                    this.input.on('pointerdown', this.throwBall, this);
+                    
+                    // Game state
+                    this.isBallMoving = false;
+                    
+                    // Set world bounds to prevent objects from going below grass
+                    this.physics.world.setBounds(0, 0, this.game.config.width, this.game.config.height * 0.8);
+                }
+                
+                throwBall() {
+                    if (this.isBallMoving) return;
+                    
+                    // Calculate random angle between 20 and 160 degrees
+                    const randomAngle = Phaser.Math.Between(20, 160);
+                    const angleInRadians = Phaser.Math.DegToRad(randomAngle);
+                    
+                    // Convert angle to velocity components with double vertical movement
+                    const speed = Phaser.Math.Between(200, 400);
+                    const velX = Math.cos(angleInRadians) * speed;
+                    const velY = -Math.sin(angleInRadians) * speed * 2;
+                    
+                    // Randomly choose left or right direction
+                    if (Phaser.Math.FloatBetween(0, 1) > 0.5) {
+                        this.ball.setVelocity(-velX, velY);
+                    } else {
+                        this.ball.setVelocity(velX, velY);
+                    }
+                    
+                    this.isBallMoving = true;
+                    
+                    // Reset cloud and sun velocities and make them immovable again
+                    this.clouds.forEach(cloud => {
+                        cloud.setVelocity(0, 0);
+                        cloud.setImmovable(true);
+                    });
+                    this.sun.setVelocity(0, 0);
+                    this.sun.setImmovable(true);
+                }
+                
+                handleBallCloudCollision(ball, cloud) {
+                    // Make cloud movable when hit
+                    cloud.setImmovable(false);
+                    
+                    // Calculate bounce angle
+                    const angle = Phaser.Math.Angle.Between(ball.x, ball.y, cloud.x, cloud.y);
+                    
+                    // Set cloud velocity based on ball velocity and angle
+                    const ballVelocity = ball.body.velocity;
+                    const speed = Math.sqrt(ballVelocity.x * ballVelocity.x + ballVelocity.y * ballVelocity.y);
+                    
+                    cloud.setVelocity(
+                        Math.cos(angle) * speed * 0.8,
+                        Math.sin(angle) * speed * 0.8
+                    );
+                }
+                
+                handleBallSunCollision(ball, sun) {
+                    // Make sun movable when hit
+                    this.sun.setImmovable(false);
+                    
+                    // Calculate bounce angle
+                    const angle = Phaser.Math.Angle.Between(ball.x, ball.y, sun.x, sun.y);
+                    
+                    // Set sun velocity based on ball velocity and angle (half speed)
+                    const ballVelocity = ball.body.velocity;
+                    const speed = Math.sqrt(ballVelocity.x * ballVelocity.x + ballVelocity.y * ballVelocity.y);
+                    
+                    this.sun.setVelocity(
+                        Math.cos(angle) * speed * 0.4,
+                        Math.sin(angle) * speed * 0.4
+                    );
+                }
+                
+                update() {
+                    // Check if ball has stopped moving
+                    if (this.isBallMoving && 
+                        Math.abs(this.ball.body.velocity.x) < 5 && 
+                        Math.abs(this.ball.body.velocity.y) < 5) {
+                        this.isBallMoving = false;
+                        this.ball.setVelocity(0, 0);
+                    }
+                    
+                    // Keep clouds and sun above grass (they have no gravity but need bounds checking)
+                    this.clouds.forEach(cloud => {
+                        if (cloud.y > this.game.config.height * 0.8 - cloud.height/2) {
+                            cloud.y = this.game.config.height * 0.8 - cloud.height/2;
+                            if (cloud.body.velocity) {
+                                cloud.setVelocity(cloud.body.velocity.x, -Math.abs(cloud.body.velocity.y) * 0.9);
+                            }
+                        }
+                    });
+                    
+                    if (this.sun.y > this.game.config.height * 0.8 - this.sun.height/2) {
+                        this.sun.y = this.game.config.height * 0.8 - this.sun.height/2;
+                        if (this.sun.body.velocity) {
+                            this.sun.setVelocity(this.sun.body.velocity.x, -Math.abs(this.sun.body.velocity.y) * 0.9);
+                        }
+                    }
+                }
+            }
+            
+            const config = {
+                type: Phaser.AUTO,
+                width: 800,
+                height: 600,
+                physics: {
+                    default: 'arcade',
+                    arcade: {
+                        gravity: { y: 300 },
+                        debug: false
+                    }
+                },
+                scene: [BabyBallGame]
+            };
+            
+            const game = new Phaser.Game(config);
+        }
+    </script>
+</body>
+</html>
