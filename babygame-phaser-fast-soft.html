@@ -2,17 +2,51 @@
 <html lang="en">
 <head>
     <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, viewport-fit=cover">
+    <meta name="apple-mobile-web-app-capable" content="yes">
+    <meta name="mobile-web-app-capable" content="yes">
     <title>Baby Ball Game - Fast & Soft Collisions</title>
     <style>
         body {
             margin: 0;
             padding: 0;
             overflow: hidden;
+            background-color: #000;
+            height: 100vh;
+            width: 100vw;
+        }
+        
+        #game-container {
+            position: absolute;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            overflow: hidden;
+        }
+        
+        #game-container canvas {
+            display: block;
+            width: 100% !important;
+            height: 100% !important;
+            object-fit: fill;
+        }
+        
+        @media (orientation: portrait) {
+            body {
+                background-color: #87CEEB;
+            }
+        }
+        
+        @media (orientation: landscape) {
+            body {
+                background-color: #000;
+            }
         }
     </style>
 </head>
 <body>
+    <div id="game-container"></div>
     <!-- Load Phaser from local directory -->
     <script src="phaser/phaser.min.js"></script>
     
@@ -25,6 +59,9 @@
             class BabyBallGame extends Phaser.Scene {
                 constructor() {
                     super({ key: 'BabyBallGame' });
+                    this.gameWidth = 800;
+                    this.gameHeight = 600;
+                    this.grassHeight = 0; // Will be set in create() method
                 }
                 
                 preload() {
@@ -130,31 +167,26 @@
                     return 'sun';
                 }
                 
-                createSunTexture() {
-                    const graphics = this.make.graphics();
-                    graphics.fillStyle(0xFFD700); // Gold
-                    graphics.fillCircle(40, 40, 40);
-                    graphics.generateTexture('sun', 80, 80);
-                    graphics.destroy();
-                    return 'sun';
-                }
-                
                 create() {
                     // Set up physics - only ball has gravity
                     this.physics.world.gravity.y = 300;
                     
-                    // Create grass boundary (20% of height)
-                    const grassHeight = this.game.config.height * 0.2;
-                    this.add.rectangle(0, this.game.config.height - grassHeight/2, 
-                        this.game.config.width, grassHeight, 0x7CFC00)
+                    // Store game dimensions
+                    this.gameWidth = this.game.config.width;
+                    this.gameHeight = this.game.config.height;
+                    
+                    // Create grass boundary (adaptive height based on screen size)
+                    this.grassHeight = Math.min(this.gameHeight * 0.2, 150); // Max 150px grass
+                    this.grass = this.add.rectangle(0, this.gameHeight - this.grassHeight/2, 
+                        this.gameWidth, this.grassHeight, 0x7CFC00)
                         .setOrigin(0, 0.5);
                     
-                    // Create sky background
-                    this.add.rectangle(0, 0, this.game.config.width, this.game.config.height * 0.8, 0x87CEEB)
+                    // Create sky background (fill remaining space)
+                    this.sky = this.add.rectangle(0, 0, this.gameWidth, this.gameHeight - this.grassHeight, 0x87CEEB)
                         .setOrigin(0, 0);
                     
-                    // Create ball (only object with gravity) - 1.5x speed
-                    this.ball = this.physics.add.sprite(this.game.config.width/2, this.game.config.height * 0.8 - 50, 'ball');
+                    // Create ball (only object with gravity) - position above grass
+                    this.ball = this.physics.add.sprite(this.gameWidth/2, this.gameHeight - this.grassHeight - 50, 'ball');
                     this.ball.setBounce(0.6);
                     this.ball.setCollideWorldBounds(true);
                     this.ball.body.setCircle(40); // 80% of real size (50) for soft collision
@@ -162,10 +194,11 @@
                     // Create clouds (NO GRAVITY - only move when hit)
                     this.clouds = [];
                     
-                    // Cloud 1 - use first texture
+                    // Cloud 1 - use first texture (position in upper 70% of screen)
+                    const playAreaHeight = this.gameHeight - this.grassHeight;
                     const cloud1 = this.physics.add.sprite(
-                        Phaser.Math.Between(50, this.game.config.width - 50),
-                        Phaser.Math.Between(50, this.game.config.height * 0.7),
+                        Phaser.Math.Between(50, this.gameWidth - 50),
+                        Phaser.Math.Between(50, playAreaHeight * 0.7),
                         'cloud'
                     );
                     cloud1.setBounce(1.0);
@@ -174,13 +207,13 @@
                     cloud1.setVelocity(0, 0);
                     cloud1.body.allowGravity = false;
                     cloud1.body.setCircle(50);
-                    cloud1.setAngle(Phaser.Math.Between(0, 360));
+                    // No startup rotation - remove cloud1.setAngle line
                     this.clouds.push(cloud1);
                     
                     // Cloud 2 - use second texture
                     const cloud2 = this.physics.add.sprite(
-                        Phaser.Math.Between(50, this.game.config.width - 50),
-                        Phaser.Math.Between(50, this.game.config.height * 0.7),
+                        Phaser.Math.Between(50, this.gameWidth - 50),
+                        Phaser.Math.Between(50, playAreaHeight * 0.7),
                         'cloud2'
                     );
                     cloud2.setBounce(1.0);
@@ -189,13 +222,13 @@
                     cloud2.setVelocity(0, 0);
                     cloud2.body.allowGravity = false;
                     cloud2.body.setCircle(50);
-                    cloud2.setAngle(Phaser.Math.Between(0, 360));
+                    // No startup rotation - remove cloud2.setAngle line
                     this.clouds.push(cloud2);
                     
                     // Cloud 3 - use third texture
                     const cloud3 = this.physics.add.sprite(
-                        Phaser.Math.Between(50, this.game.config.width - 50),
-                        Phaser.Math.Between(50, this.game.config.height * 0.7),
+                        Phaser.Math.Between(50, this.gameWidth - 50),
+                        Phaser.Math.Between(50, playAreaHeight * 0.7),
                         'cloud3'
                     );
                     cloud3.setBounce(1.0);
@@ -204,13 +237,13 @@
                     cloud3.setVelocity(0, 0);
                     cloud3.body.allowGravity = false;
                     cloud3.body.setCircle(50);
-                    cloud3.setAngle(Phaser.Math.Between(0, 360));
+                    // No startup rotation - remove cloud3.setAngle line
                     this.clouds.push(cloud3);
                     
                     // Create sun (NO GRAVITY - only moves when hit)
                     this.sun = this.physics.add.sprite(
-                        Phaser.Math.Between(50, this.game.config.width - 50),
-                        Phaser.Math.Between(50, this.game.config.height * 0.7),
+                        Phaser.Math.Between(50, this.gameWidth - 50),
+                        Phaser.Math.Between(50, playAreaHeight * 0.2),
                         'sun'
                     );
                     this.sun.setBounce(1.0);
@@ -232,11 +265,14 @@
                     this.input.keyboard.on('keydown', this.throwBall, this);
                     this.input.on('pointerdown', this.throwBall, this);
                     
+                    // Add touch support for mobile
+                    this.input.on('touchstart', this.throwBall, this);
+                    
                     // Game state
                     this.isBallMoving = false;
                     
-                    // Set world bounds to prevent objects from going below grass
-                    this.physics.world.setBounds(0, 0, this.game.config.width, this.game.config.height * 0.8);
+                    // Set world bounds to full screen height
+                    this.physics.world.setBounds(0, 0, this.gameWidth, this.gameHeight);
                 }
                 
                 throwBall() {
@@ -395,6 +431,123 @@
                     sun.setAngularVelocity(Phaser.Math.Between(-0.5, 0.5) * 50);
                 }
                 
+                handleResizeCollisions(oldWidth, oldHeight, newWidth, newHeight) {
+                    // Update grass height for new screen size
+                    this.grassHeight = Math.min(newHeight * 0.2, 150);
+                    const playAreaHeight = newHeight - this.grassHeight;
+                    
+                    // Update grass and sky to new dimensions
+                    if (this.grass) {
+                        this.grass.setSize(newWidth, this.grassHeight);
+                        this.grass.y = newHeight - this.grassHeight/2;
+                    }
+                    if (this.sky) {
+                        this.sky.setSize(newWidth, playAreaHeight);
+                    }
+                    
+                    // Check if objects are now outside the new bounds and make them bounce
+                    const grassBottom = newHeight - this.grassHeight;
+                    
+                    // Check ball collision with new grass position
+                    if (this.ball && this.ball.y + this.ball.height/2 > grassBottom) {
+                        // Ball is below grass - make it bounce
+                        this.ball.y = grassBottom - this.ball.height/2;
+                        if (this.ball.body) {
+                            const bounceVelocityY = -Math.abs(this.ball.body.velocity.y || 200) * 0.7;
+                            const bounceVelocityX = (this.ball.body.velocity.x || 0) * 0.9;
+                            this.ball.setVelocity(bounceVelocityX, bounceVelocityY);
+                        }
+                    }
+                    
+                    // Check clouds collision with new boundaries
+                    this.clouds.forEach(cloud => {
+                        // Check bottom collision with grass
+                        if (cloud.y + cloud.height/2 > grassBottom) {
+                            cloud.y = grassBottom - cloud.height/2;
+                            if (cloud.body && cloud.body.velocity) {
+                                const bounceVelocityY = -Math.abs(cloud.body.velocity.y) * 0.7;
+                                const bounceVelocityX = cloud.body.velocity.x * 0.9;
+                                cloud.setVelocity(bounceVelocityX, bounceVelocityY);
+                                // Add some rotation on bounce
+                                cloud.setAngularVelocity(Phaser.Math.Between(-1, 1) * 50);
+                            }
+                        }
+                        
+                        // Check top collision with screen top
+                        if (cloud.y - cloud.height/2 < 0) {
+                            cloud.y = cloud.height/2;
+                            if (cloud.body && cloud.body.velocity) {
+                                const bounceVelocityY = Math.abs(cloud.body.velocity.y) * 0.7;
+                                const bounceVelocityX = cloud.body.velocity.x * 0.9;
+                                cloud.setVelocity(bounceVelocityX, bounceVelocityY);
+                                // Add some rotation on bounce
+                                cloud.setAngularVelocity(Phaser.Math.Between(-1, 1) * 50);
+                            }
+                        }
+                        
+                        // Check side collisions
+                        if (cloud.x - cloud.width/2 < 0) {
+                            cloud.x = cloud.width/2;
+                            if (cloud.body && cloud.body.velocity) {
+                                const bounceVelocityX = Math.abs(cloud.body.velocity.x) * 0.7;
+                                const bounceVelocityY = cloud.body.velocity.y * 0.9;
+                                cloud.setVelocity(bounceVelocityX, bounceVelocityY);
+                            }
+                        } else if (cloud.x + cloud.width/2 > newWidth) {
+                            cloud.x = newWidth - cloud.width/2;
+                            if (cloud.body && cloud.body.velocity) {
+                                const bounceVelocityX = -Math.abs(cloud.body.velocity.x) * 0.7;
+                                const bounceVelocityY = cloud.body.velocity.y * 0.9;
+                                cloud.setVelocity(bounceVelocityX, bounceVelocityY);
+                            }
+                        }
+                    });
+                    
+                    // Check sun collision with new boundaries
+                    if (this.sun) {
+                        // Check bottom collision with grass
+                        if (this.sun.y + this.sun.height/2 > grassBottom) {
+                            this.sun.y = grassBottom - this.sun.height/2;
+                            if (this.sun.body && this.sun.body.velocity) {
+                                const bounceVelocityY = -Math.abs(this.sun.body.velocity.y) * 0.7;
+                                const bounceVelocityX = this.sun.body.velocity.x * 0.9;
+                                this.sun.setVelocity(bounceVelocityX, bounceVelocityY);
+                                // Add gentle rotation on bounce
+                                this.sun.setAngularVelocity(Phaser.Math.Between(-0.5, 0.5) * 30);
+                            }
+                        }
+                        
+                        // Check top collision with screen top
+                        if (this.sun.y - this.sun.height/2 < 0) {
+                            this.sun.y = this.sun.height/2;
+                            if (this.sun.body && this.sun.body.velocity) {
+                                const bounceVelocityY = Math.abs(this.sun.body.velocity.y) * 0.7;
+                                const bounceVelocityX = this.sun.body.velocity.x * 0.9;
+                                this.sun.setVelocity(bounceVelocityX, bounceVelocityY);
+                                // Add gentle rotation on bounce
+                                this.sun.setAngularVelocity(Phaser.Math.Between(-0.5, 0.5) * 30);
+                            }
+                        }
+                        
+                        // Check side collisions
+                        if (this.sun.x - this.sun.width/2 < 0) {
+                            this.sun.x = this.sun.width/2;
+                            if (this.sun.body && this.sun.body.velocity) {
+                                const bounceVelocityX = Math.abs(this.sun.body.velocity.x) * 0.7;
+                                const bounceVelocityY = this.sun.body.velocity.y * 0.9;
+                                this.sun.setVelocity(bounceVelocityX, bounceVelocityY);
+                            }
+                        } else if (this.sun.x + this.sun.width/2 > newWidth) {
+                            this.sun.x = newWidth - this.sun.width/2;
+                            if (this.sun.body && this.sun.body.velocity) {
+                                const bounceVelocityX = -Math.abs(this.sun.body.velocity.x) * 0.7;
+                                const bounceVelocityY = this.sun.body.velocity.y * 0.9;
+                                this.sun.setVelocity(bounceVelocityX, bounceVelocityY);
+                            }
+                        }
+                    }
+                }
+                
                 update() {
                     // Check if ball has stopped moving
                     if (this.isBallMoving && 
@@ -406,16 +559,16 @@
                     
                     // Keep clouds and sun above grass with softer collision (allow some overlap)
                     this.clouds.forEach(cloud => {
-                        if (cloud.y > this.game.config.height * 0.8 - cloud.height/2 + 20) { // +20 for softer collision
-                            cloud.y = this.game.config.height * 0.8 - cloud.height/2;
+                        if (cloud.y > this.gameHeight - this.grassHeight - cloud.height/2 + 20) { // +20 for softer collision
+                            cloud.y = this.gameHeight - this.grassHeight - cloud.height/2;
                             if (cloud.body.velocity) {
                                 cloud.setVelocity(cloud.body.velocity.x * 0.9, -Math.abs(cloud.body.velocity.y) * 0.7); // Softer bounce
                             }
                         }
                     });
                     
-                    if (this.sun.y > this.game.config.height * 0.8 - this.sun.height/2 + 20) { // +20 for softer collision
-                        this.sun.y = this.game.config.height * 0.8 - this.sun.height/2;
+                    if (this.sun.y > this.gameHeight - this.grassHeight - this.sun.height/2 + 20) { // +20 for softer collision
+                        this.sun.y = this.gameHeight - this.grassHeight - this.sun.height/2;
                         if (this.sun.body.velocity) {
                             this.sun.setVelocity(this.sun.body.velocity.x * 0.9, -Math.abs(this.sun.body.velocity.y) * 0.7); // Softer bounce
                         }
@@ -439,10 +592,22 @@
                 }
             }
             
+            // Make game take up full screen with proper vertical resizing
+            const getGameSize = () => {
+                // Take full screen dimensions
+                const width = window.innerWidth;
+                const height = window.innerHeight;
+                
+                // Use full screen without aspect ratio constraints
+                return { width: width, height: height };
+            };
+            
+            const gameSize = getGameSize();
+            
             const config = {
                 type: Phaser.AUTO,
-                width: 800,
-                height: 600,
+                width: gameSize.width,
+                height: gameSize.height,
                 physics: {
                     default: 'arcade',
                     arcade: {
@@ -450,10 +615,64 @@
                         debug: false
                     }
                 },
-                scene: [BabyBallGame]
+                scene: [BabyBallGame],
+                scale: {
+                    mode: Phaser.Scale.NONE,
+                    autoCenter: Phaser.Scale.CENTER_BOTH,
+                    parent: 'game-container',
+                    expandParent: true
+                }
             };
             
             const game = new Phaser.Game(config);
+            
+            // Set initial canvas styling to stretch to fill screen
+            setTimeout(() => {
+                const canvas = document.querySelector('canvas');
+                if (canvas) {
+                    canvas.style.width = '100%';
+                    canvas.style.height = '100%';
+                    canvas.style.objectFit = 'fill';
+                    canvas.style.display = 'block';
+                }
+            }, 100);
+            
+            // Handle window resize with object collision detection
+            window.addEventListener('resize', () => {
+                const newSize = getGameSize();
+                
+                // Directly resize the game canvas to fill screen
+                if (game.scale) {
+                    game.scale.resize(newSize.width, newSize.height);
+                }
+                
+                // Force canvas to stretch to fill container
+                const canvas = document.querySelector('canvas');
+                if (canvas) {
+                    canvas.style.width = '100%';
+                    canvas.style.height = '100%';
+                    canvas.style.objectFit = 'fill';
+                }
+                
+                // Update the game scene's dimensions
+                if (game.scene.scenes.length > 0) {
+                    const scene = game.scene.scenes[0];
+                    if (scene.gameWidth && scene.gameHeight) {
+                        const oldWidth = scene.gameWidth;
+                        const oldHeight = scene.gameHeight;
+                        scene.gameWidth = newSize.width;
+                        scene.gameHeight = newSize.height;
+                        
+                        // Update world bounds to full new dimensions
+                        if (scene.physics && scene.physics.world) {
+                            scene.physics.world.setBounds(0, 0, newSize.width, newSize.height);
+                        }
+                        
+                        // Handle object collisions with resized borders
+                        scene.handleResizeCollisions(oldWidth, oldHeight, newSize.width, newSize.height);
+                    }
+                }
+            });
         }
     </script>
 </body>
