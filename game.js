@@ -176,9 +176,19 @@ if (typeof Phaser === 'undefined') {
             // Calculate bounce angle
             const angle = Phaser.Math.Angle.Between(ball.x, ball.y, cloud.x, cloud.y);
 
+            // Add a "profound" nudge to separate them immediately
+            const nudgeOffset = 15;
+            ball.x -= Math.cos(angle) * nudgeOffset;
+            ball.y -= Math.sin(angle) * nudgeOffset;
+            cloud.x += Math.cos(angle) * nudgeOffset;
+            cloud.y += Math.sin(angle) * nudgeOffset;
+
             // Set cloud velocity based on ball velocity and angle - 1.5x speed
             const ballVelocity = ball.body.velocity;
-            const speed = Math.sqrt(ballVelocity.x * ballVelocity.x + ballVelocity.y * ballVelocity.y);
+            let speed = Math.sqrt(ballVelocity.x * ballVelocity.x + ballVelocity.y * ballVelocity.y);
+            
+            // Ensure a minimum "profound" bounce speed
+            speed = Math.max(speed, 300);
 
             // Softer collision with 25% energy loss (-25% speed)
             cloud.setVelocity(
@@ -187,7 +197,7 @@ if (typeof Phaser === 'undefined') {
             );
 
             // Also reduce ball's speed by 25% for more realistic physics
-            this.ball.setVelocity(
+            ball.setVelocity(
                 ballVelocity.x * 0.75,
                 ballVelocity.y * 0.75
             );
@@ -202,30 +212,40 @@ if (typeof Phaser === 'undefined') {
 
         handleBallSunCollision(ball, sun) {
             // Make sun movable when hit
-            this.sun.setImmovable(false);
+            sun.setImmovable(false);
 
             // Calculate bounce angle
             const angle = Phaser.Math.Angle.Between(ball.x, ball.y, sun.x, sun.y);
 
+            // Add a "profound" nudge to separate them immediately
+            const nudgeOffset = 15;
+            ball.x -= Math.cos(angle) * nudgeOffset;
+            ball.y -= Math.sin(angle) * nudgeOffset;
+            sun.x += Math.cos(angle) * nudgeOffset;
+            sun.y += Math.sin(angle) * nudgeOffset;
+
             // Set sun velocity based on ball velocity and angle (half speed of clouds)
             const ballVelocity = ball.body.velocity;
-            const speed = Math.sqrt(ballVelocity.x * ballVelocity.x + ballVelocity.y * ballVelocity.y);
+            let speed = Math.sqrt(ballVelocity.x * ballVelocity.x + ballVelocity.y * ballVelocity.y);
+            
+            // Ensure a minimum "profound" bounce speed
+            speed = Math.max(speed, 250);
 
             // Softer collision with 25% energy loss (-25% speed)
-            this.sun.setVelocity(
+            sun.setVelocity(
                 Math.cos(angle) * speed * 0.6 * 0.75, // 25% reduction
                 Math.sin(angle) * speed * 0.6 * 0.75   // 25% reduction
             );
 
             // Also reduce ball's speed by 25% for more realistic physics
-            this.ball.setVelocity(
+            ball.setVelocity(
                 ballVelocity.x * 0.75,
                 ballVelocity.y * 0.75
             );
 
             // Add rotation to sun on bounce
             const rotationSpeed = Phaser.Math.Between(-0.5, 0.5); // Slower rotation for sun
-            this.sun.setAngularVelocity(rotationSpeed * 50); // Degrees per second
+            sun.setAngularVelocity(rotationSpeed * 50); // Degrees per second
 
             // Increment bounce counter
             this.incrementBounceCounter();
@@ -236,6 +256,13 @@ if (typeof Phaser === 'undefined') {
             // Calculate overlap and apply softer bounce
             const angle = Phaser.Math.Angle.Between(cloud1.x, cloud1.y, cloud2.x, cloud2.y);
 
+            // Add a "profound" nudge to separate them immediately
+            const nudgeOffset = 10;
+            cloud1.x -= Math.cos(angle) * nudgeOffset;
+            cloud1.y -= Math.sin(angle) * nudgeOffset;
+            cloud2.x += Math.cos(angle) * nudgeOffset;
+            cloud2.y += Math.sin(angle) * nudgeOffset;
+
             // Get velocities
             const vel1 = cloud1.body.velocity;
             const vel2 = cloud2.body.velocity;
@@ -245,7 +272,10 @@ if (typeof Phaser === 'undefined') {
             const relVelY = vel1.y - vel2.y;
 
             // Softer collision response with 25% energy loss (-25% speed)
-            const speed = Math.sqrt(relVelX * relVelX + relVelY * relVelY);
+            let speed = Math.sqrt(relVelX * relVelX + relVelY * relVelY);
+            
+            // Ensure a minimum "profound" bounce speed
+            speed = Math.max(speed, 150);
 
             // Apply softer bounce with some overlap allowed and 25% energy loss
             const bounceX = Math.cos(angle) * speed * 0.6 * 0.75; // 25% reduction
@@ -272,6 +302,13 @@ if (typeof Phaser === 'undefined') {
             // Similar soft collision for cloud-sun
             const angle = Phaser.Math.Angle.Between(cloud.x, cloud.y, sun.x, sun.y);
 
+            // Add a "profound" nudge to separate them immediately
+            const nudgeOffset = 10;
+            cloud.x -= Math.cos(angle) * nudgeOffset;
+            cloud.y -= Math.sin(angle) * nudgeOffset;
+            sun.x += Math.cos(angle) * nudgeOffset;
+            sun.y += Math.sin(angle) * nudgeOffset;
+
             // Get velocities
             const cloudVel = cloud.body.velocity;
             const sunVel = sun.body.velocity;
@@ -281,7 +318,10 @@ if (typeof Phaser === 'undefined') {
             const relVelY = cloudVel.y - sunVel.y;
 
             // Softer collision response with 10% energy loss
-            const speed = Math.sqrt(relVelX * relVelX + relVelY * relVelY);
+            let speed = Math.sqrt(relVelX * relVelX + relVelY * relVelY);
+            
+            // Ensure a minimum "profound" bounce speed
+            speed = Math.max(speed, 150);
 
             // Apply softer bounce with 25% energy loss (-25% speed)
             const bounceX = Math.cos(angle) * speed * 0.5 * 0.75; // 25% reduction
