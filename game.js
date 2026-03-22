@@ -147,11 +147,7 @@ if (typeof Phaser === 'undefined') {
             this.ball.setCollideWorldBounds(true);
             // Create sun (NO GRAVITY - only moves when hit)
             const playAreaHeight = this.gameHeight - this.grassHeight;
-            this.sun = this.physics.add.sprite(
-                Phaser.Math.Between(50, this.gameWidth - 50),
-                Phaser.Math.Between(50, playAreaHeight * 0.2),
-                'sun'
-            );
+            this.sun = this.physics.add.sprite(60, 60, 'sun');
             this.sun.setBounce(1.0);
             this.sun.setCollideWorldBounds(true);
             this.sun.setImmovable(true);
@@ -778,17 +774,14 @@ if (typeof Phaser === 'undefined') {
             this.ball.setVelocity(0, 0);
             this.ball.setAngularVelocity(0);
             
-            // Reset sun position and velocity
-            const playAreaHeight = this.gameHeight - this.grassHeight;
-            this.sun.setPosition(
-                Phaser.Math.Between(50, this.gameWidth - 50),
-                Phaser.Math.Between(50, playAreaHeight * 0.2)
-            );
+            // Reset sun position and velocity (always top-left corner)
+            this.sun.setPosition(60, 60);
             this.sun.setVelocity(0, 0);
             this.sun.setAngularVelocity(0);
             this.sun.setImmovable(true);
             
             // Reset clouds positions and velocities
+            const playAreaHeight = this.gameHeight - this.grassHeight;
             this.clouds.forEach(cloud => {
                 cloud.setPosition(
                     Phaser.Math.Between(50, this.gameWidth - 50),
@@ -802,7 +795,8 @@ if (typeof Phaser === 'undefined') {
             // Reset game state
             this.isBallMoving = false;
             
-            // Reset session counter
+            // Reset both counters
+            this.totalBounces = 0;
             this.sessionBounces = 0;
             this.updateCounters();
         }
