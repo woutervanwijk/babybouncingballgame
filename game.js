@@ -178,8 +178,12 @@ if (typeof Phaser === 'undefined') {
             this.physics.add.collider(this.clouds, this.clouds, this.handleCloudCloudCollision, null, this);
             this.physics.add.collider(this.clouds, this.sun, this.handleCloudSunCollision, null, this);
             
-            // Set up input
-            this.input.keyboard.on('keydown', this.throwBall, this);
+            // Set up input - only spacebar throws the ball
+            this.input.keyboard.on('keydown', (event) => {
+                if (event.key === ' ' || event.code === 'Space') {
+                    this.throwBall();
+                }
+            }, this);
             this.input.on('pointerdown', this.throwBall, this);
             
             // Add touch support for mobile
@@ -474,8 +478,25 @@ if (typeof Phaser === 'undefined') {
                 this.ball.setVelocity(0, 0);
             }
             
-            // Keep clouds and sun above grass with softer collision (allow some overlap)
+            // Apply minimal damping to clouds to make them stop very gradually
             this.clouds.forEach(cloud => {
+                if (cloud.body && cloud.body.velocity) {
+                    const velX = cloud.body.velocity.x;
+                    const velY = cloud.body.velocity.y;
+                    
+                    // Apply minimal damping when clouds are moving slowly
+                    if (Math.abs(velX) < 50 && Math.abs(velY) < 50) {
+                        cloud.setVelocity(velX * 0.99375, velY * 0.99375); // 0.625% damping (half of 1.25%)
+                    } else {
+                        cloud.setVelocity(velX * 0.9984375, velY * 0.9984375); // 0.15625% damping (half of 0.3125%)
+                    }
+                    
+                    // Dampen rotation as well
+                    if (cloud.body.angularVelocity !== 0) {
+                        cloud.setAngularVelocity(cloud.body.angularVelocity * 0.9971875); // 0.28125% rotation damping (half of 0.5625%)
+                    }
+                }
+                
                 if (cloud.y > this.gameHeight - this.grassHeight - cloud.height/2 + 20) { // +20 for softer collision
                     cloud.y = this.gameHeight - this.grassHeight - cloud.height/2;
                     if (cloud.body.velocity) {
@@ -517,6 +538,37 @@ if (typeof Phaser === 'undefined') {
                     this.ball.body.velocity.y + Phaser.Math.Between(-5, 5)
                 );
             }
+        }
+        
+        resetGame() {
+            // Reset ball position and velocity
+            this.ball.setPosition(this.gameWidth/2, this.gameHeight - this.grassHeight - 50);
+            this.ball.setVelocity(0, 0);
+            this.ball.setAngularVelocity(0);
+            
+            // Reset sun position and velocity
+            const playAreaHeight = this.gameHeight - this.grassHeight;
+            this.sun.setPosition(
+                Phaser.Math.Between(50, this.gameWidth - 50),
+                Phaser.Math.Between(50, playAreaHeight * 0.2)
+            );
+            this.sun.setVelocity(0, 0);
+            this.sun.setAngularVelocity(0);
+            this.sun.setImmovable(true);
+            
+            // Reset clouds positions and velocities
+            this.clouds.forEach(cloud => {
+                cloud.setPosition(
+                    Phaser.Math.Between(50, this.gameWidth - 50),
+                    Phaser.Math.Between(50, playAreaHeight * 0.7)
+                );
+                cloud.setVelocity(0, 0);
+                cloud.setAngularVelocity(0);
+                cloud.setImmovable(true);
+            });
+            
+            // Reset game state
+            this.isBallMoving = false;
         }
     }
     
@@ -600,5 +652,18 @@ if (typeof Phaser === 'undefined') {
                 scene.handleResizeCollisions(oldWidth, oldHeight, newSize.width, newSize.height);
             }
         }
+    });
+    
+    // Add reset button event listener
+    document.getElementById('reset-button').addEventListener('click', (event) => {
+        event.preventDefault();
+        if (game.scene.scenes.length > 0) {
+            const scene = game.scene.scenes[0];
+            if (scene.resetGame) {
+                scene.resetGame();
+            }
+        }
+        // Blur the button to remove focus
+        document.getElementById('reset-button').blur();
     });
 }
