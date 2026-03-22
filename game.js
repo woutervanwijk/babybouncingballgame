@@ -624,13 +624,13 @@ if (typeof Phaser === 'undefined') {
             this.aimAngle = Math.random() * Math.PI * 2; // 0 to 2π radians
             // Random direction: clockwise or counter-clockwise
             this.rotationDirection = Math.random() < 0.5 ? 1 : -1;
+            // Reset session counter immediately when aiming starts
+            this.sessionBounces = 0;
+            this.updateCounters();
             // Set timeout to show arrow after 200ms
             this.arrowShowTimeout = setTimeout(() => {
                 if (this.isAiming) {
                     this.directionIndicator.visible = true;
-                    // Reset session counter when arrow becomes visible (after 200ms)
-                    this.sessionBounces = 0;
-                    this.updateCounters();
                 }
             }, 200);
         }
