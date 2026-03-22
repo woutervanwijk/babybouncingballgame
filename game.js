@@ -16,7 +16,8 @@ if (typeof Phaser === 'undefined') {
             this.aimAngle = 0;
             this.keyDownTime = 0;
             this.rotationSpeed = 0.05; // Radians per frame (slower for smoother rotation)
-            this.rotationAccumulator = 0; // For smooth rotation accumulation
+            this.rotationDirection = 1; // 1 for clockwise, -1 for counter-clockwise
+            this.arrowShowTimeout = null; // Timeout for showing arrow
         }
         
         preload() {
@@ -186,15 +187,17 @@ if (typeof Phaser === 'undefined') {
             this.physics.add.collider(this.clouds, this.clouds, this.handleCloudCloudCollision, null, this);
             this.physics.add.collider(this.clouds, this.sun, this.handleCloudSunCollision, null, this);
             
-            // Set up input for centrifuge aiming system
+            // Set up input for centrifuge aiming system (any key)
             this.input.keyboard.on('keydown', (event) => {
-                if (event.key === ' ' || event.code === 'Space') {
+                // Ignore modifier keys and already handled keys
+                if (!event.repeat && event.key.length === 1) {
                     this.startCentrifugeAiming();
                 }
             }, this);
             
             this.input.keyboard.on('keyup', (event) => {
-                if (event.key === ' ' || event.code === 'Space') {
+                // Any key release throws the ball
+                if (event.key.length === 1) {
                     this.throwBallInDirection();
                 }
             }, this);
@@ -516,15 +519,16 @@ if (typeof Phaser === 'undefined') {
         update() {
             // Spin the arrow continuously when aiming (centrifuge effect)
             if (this.isAiming) {
-                // Use accumulator for smooth rotation that wraps properly around 360 degrees
-                this.rotationAccumulator += this.rotationSpeed;
+                // Add rotation speed in the random direction
+                this.aimAngle += this.rotationSpeed * this.rotationDirection;
                 
-                // Keep the angle within 0-2π range for smooth wrapping
-                while (this.rotationAccumulator >= Math.PI * 2) {
-                    this.rotationAccumulator -= Math.PI * 2;
+                // Wrap angle around 2π to keep it in valid range
+                if (this.aimAngle >= Math.PI * 2) {
+                    this.aimAngle -= Math.PI * 2;
+                } else if (this.aimAngle < 0) {
+                    this.aimAngle += Math.PI * 2;
                 }
                 
-                this.aimAngle = this.rotationAccumulator;
                 this.updateDirectionIndicator();
             }
             
@@ -618,14 +622,21 @@ if (typeof Phaser === 'undefined') {
         
         startCentrifugeAiming() {
             this.isAiming = true;
-            this.directionIndicator.visible = true;
+            this.directionIndicator.visible = false; // Start hidden
             this.keyDownTime = Date.now();
             // Start with a random angle (different each time)
-            // Using Math.random() directly for better randomness
-            const randomStartAngle = Math.random() * Math.PI * 2; // 0 to 2π radians
-            this.aimAngle = randomStartAngle;
-            // Set rotation accumulator to the random start angle
-            this.rotationAccumulator = randomStartAngle;
+            this.aimAngle = Math.random() * Math.PI * 2; // 0 to 2π radians
+            // Random direction: clockwise or counter-clockwise
+            this.rotationDirection = Math.random() < 0.5 ? 1 : -1;
+            // Set timeout to show arrow after 200ms
+            this.arrowShowTimeout = setTimeout(() => {
+                if (this.isAiming) {
+                    this.directionIndicator.visible = true;
+                    // Reset session counter when arrow becomes visible (after 200ms)
+                    this.sessionBounces = 0;
+                    this.updateCounters();
+                }
+            }, 200);
         }
         
         updateDirectionIndicator() {
@@ -636,17 +647,17 @@ if (typeof Phaser === 'undefined') {
             // Calculate arrow length based on how long the button has been pressed (smooth transition)
             const pressDuration = Date.now() - this.keyDownTime;
             
-            // Smooth arrow length calculation: starts at 100, decreases to 40 over 2 seconds
+            // Smooth arrow length calculation: starts at 100, decreases to 40 over 7.5 seconds (3x slower)
             // Minimum length is 40 to ensure the ball still throws a bit
             const maxLength = 100;
             const minLength = 40;
-            const durationForFullShrink = 2000; // 2 seconds to reach minimum length
+            const durationForFullShrink = 7500; // 7.5 seconds to reach minimum length (3x slower)
             
             // Calculate normalized duration (0 to 1)
             const normalizedDuration = Math.min(pressDuration, durationForFullShrink) / durationForFullShrink;
             
             // Smooth interpolation using ease-out for more natural feel
-            const easeOutDuration = 1 - Math.pow(1 - normalizedDuration, 3);
+            const easeOutDuration = 1 - Math.pow(1 - normalizedDuration, 1.5); // Gentler easing
             
             // Calculate arrow length
             const arrowLength = maxLength - (maxLength - minLength) * easeOutDuration;
@@ -685,6 +696,13 @@ if (typeof Phaser === 'undefined') {
             if (!this.isAiming) return;
             
             this.isAiming = false;
+            
+            // Clear the arrow show timeout if it exists
+            if (this.arrowShowTimeout) {
+                clearTimeout(this.arrowShowTimeout);
+                this.arrowShowTimeout = null;
+            }
+            
             this.directionIndicator.visible = false;
             
             // Calculate press duration
@@ -694,18 +712,18 @@ if (typeof Phaser === 'undefined') {
             const baseSpeed = Phaser.Math.Between(1600, 2800); // Initial speed for <200ms
             let speed;
             
-            // Step-based slowdown: halve speed at each time threshold
-            if (pressDuration < 200) {
-                // 0-200ms: full speed
+            // Step-based slowdown: halve speed at each time threshold (3x slower than previous)
+            if (pressDuration < 1800) {
+                // 0-1800ms: full speed
                 speed = baseSpeed;
-            } else if (pressDuration < 500) {
-                // 200-500ms: half speed
+            } else if (pressDuration < 4500) {
+                // 1800-4500ms: half speed
                 speed = baseSpeed * 0.5;
-            } else if (pressDuration < 1000) {
-                // 500-1000ms: quarter speed
+            } else if (pressDuration < 9000) {
+                // 4500-9000ms: quarter speed
                 speed = baseSpeed * 0.25;
             } else {
-                // >1000ms: minimum speed (still throws the ball)
+                // >9000ms: minimum speed (still throws the ball)
                 speed = baseSpeed * 0.15; // Ensures the ball still moves
             }
             
@@ -720,8 +738,7 @@ if (typeof Phaser === 'undefined') {
             this.ball.setVelocity(velX, velY);
             this.isBallMoving = true;
             
-            // Reset session counter when ball is thrown
-            this.sessionBounces = 0;
+            // Update counters (session counter was already reset when arrow appeared)
             this.updateCounters();
             
             // DON'T reset cloud and sun velocities - let them keep moving
