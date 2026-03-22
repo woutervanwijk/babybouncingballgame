@@ -827,10 +827,13 @@ if (typeof Phaser === 'undefined') {
         },
         scene: [BabyBallGame],
         scale: {
-            mode: Phaser.Scale.NONE,
+            mode: Phaser.Scale.AUTO,
             autoCenter: Phaser.Scale.CENTER_BOTH,
             parent: 'game-container',
-            expandParent: true
+            expandParent: true,
+       width: gameSize.width,
+        height: gameSize.height,
+            zoom: 1
         }
     };
     
