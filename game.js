@@ -22,9 +22,11 @@ if (typeof Phaser === 'undefined') {
 
         preload() {
             // Load SVG assets from the svg directory
-            this.load.svg('cloud', 'svg/cloud.svg');
-            this.load.svg('sun', 'svg/sun.svg');
-            this.load.svg('ball', 'svg/ball.svg');
+            // Load SVG assets with higher resolution for Retina displays
+            // We load them at 2x the display size to ensure they're sharp
+            this.load.svg('cloud', 'svg/cloud.svg', { width: 450, height: 450 });
+            this.load.svg('sun', 'svg/sun.svg', { width: 240, height: 240 });
+            this.load.svg('ball', 'svg/ball.svg', { width: 200, height: 200 });
         }
 
 
@@ -520,16 +522,24 @@ if (typeof Phaser === 'undefined') {
                     const velX = cloud.body.velocity.x;
                     const velY = cloud.body.velocity.y;
 
-                    // Apply minimal damping when clouds are moving slowly
-                    if (Math.abs(velX) < 50 && Math.abs(velY) < 50) {
-                        cloud.setVelocity(velX * 0.99375, velY * 0.99375); // 0.625% damping (half of 1.25%)
+                    // Apply much stronger damping to make them stop eventually
+                    if (Math.abs(velX) < 100 && Math.abs(velY) < 100) {
+                        cloud.setVelocity(velX * 0.96, velY * 0.96); // 4% damping (stopped from 2%)
                     } else {
-                        cloud.setVelocity(velX * 0.9984375, velY * 0.9984375); // 0.15625% damping (half of 0.3125%)
+                        cloud.setVelocity(velX * 0.98, velY * 0.98); // 2% damping (stopped from 1%)
+                    }
+
+                    // Stop completely if moving very slowly
+                    if (Math.abs(velX) < 2 && Math.abs(velY) < 2) {
+                        cloud.setVelocity(0, 0);
+                        if (Math.abs(cloud.body.angularVelocity) < 1) {
+                            cloud.setAngularVelocity(0);
+                        }
                     }
 
                     // Dampen rotation as well
                     if (cloud.body.angularVelocity !== 0) {
-                        cloud.setAngularVelocity(cloud.body.angularVelocity * 0.9971875); // 0.28125% rotation damping (half of 0.5625%)
+                        cloud.setAngularVelocity(cloud.body.angularVelocity * 0.96); // 4% rotation damping
                     }
                 }
 
@@ -546,16 +556,24 @@ if (typeof Phaser === 'undefined') {
                 const velX = this.sun.body.velocity.x;
                 const velY = this.sun.body.velocity.y;
 
-                // Apply very subtle damping to sun movement
-                if (Math.abs(velX) < 50 && Math.abs(velY) < 50) {
-                    this.sun.setVelocity(velX * 0.994375, velY * 0.994375); // 0.5625% damping (25% of 0.75%)
+                // Apply damping to sun movement
+                if (Math.abs(velX) < 100 && Math.abs(velY) < 100) {
+                    this.sun.setVelocity(velX * 0.97, velY * 0.97); // 3% damping
                 } else {
-                    this.sun.setVelocity(velX * 0.9971875, velY * 0.9971875); // 0.28125% damping (25% of 0.375%)
+                    this.sun.setVelocity(velX * 0.99, velY * 0.99); // 1% damping
                 }
 
-                // Dampen sun rotation as well (25% of previous damping)
+                // Stop completely if moving very slowly
+                if (Math.abs(velX) < 2 && Math.abs(velY) < 2) {
+                    this.sun.setVelocity(0, 0);
+                    if (Math.abs(this.sun.body.angularVelocity) < 1) {
+                        this.sun.setAngularVelocity(0);
+                    }
+                }
+
+                // Dampen sun rotation as well
                 if (this.sun.body.angularVelocity !== 0) {
-                    this.sun.setAngularVelocity(this.sun.body.angularVelocity * 0.994375); // 0.5625% rotation damping (25% of 0.75%)
+                    this.sun.setAngularVelocity(this.sun.body.angularVelocity * 0.97); // 3% rotation damping
                 }
             }
 
@@ -828,29 +846,26 @@ if (typeof Phaser === 'undefined') {
             }
         },
         scene: [BabyBallGame],
+        render: {
+            pixelArt: false,
+            antialias: true,
+            roundPixels: true
+        },
+        backgroundColor: '#87CEEB', // Match sky color
+        transparent: false, // Better performance and rendering on Safari
+        resolution: window.devicePixelRatio || 1, // Crucial for Retina displays (Safari/iOS)
         scale: {
-            mode: Phaser.Scale.AUTO,
+            mode: Phaser.Scale.RESIZE,
             autoCenter: Phaser.Scale.CENTER_BOTH,
             parent: 'game-container',
-            expandParent: true,
-            width: gameSize.width,
-            height: gameSize.height,
-            zoom: 1
+            expandParent: true
         }
     };
 
     const game = new Phaser.Game(config);
 
-    // Set initial canvas styling to stretch to fill screen
-    setTimeout(() => {
-        const canvas = document.querySelector('canvas');
-        if (canvas) {
-            canvas.style.width = '100%';
-            canvas.style.height = '100%';
-            canvas.style.objectFit = 'fill';
-            canvas.style.display = 'block';
-        }
-    }, 100);
+    // Remove the manual styling that overrides Phaser's internal logic
+    // Phaser handles the resize and canvas styling correctly through its config
 
     // Handle window resize with object collision detection
     window.addEventListener('resize', () => {
