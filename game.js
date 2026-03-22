@@ -9,6 +9,8 @@ if (typeof Phaser === 'undefined') {
             this.gameWidth = 800;
             this.gameHeight = 600;
             this.grassHeight = 0; // Will be set in create() method
+            this.totalBounces = 0;
+            this.sessionBounces = 0;
         }
         
         preload() {
@@ -192,6 +194,9 @@ if (typeof Phaser === 'undefined') {
             // Game state
             this.isBallMoving = false;
             
+            // Initialize counters
+            this.updateCounters();
+            
             // Set world bounds to full screen height
             this.physics.world.setBounds(0, 0, this.gameWidth, this.gameHeight);
         }
@@ -216,6 +221,10 @@ if (typeof Phaser === 'undefined') {
             }
             
             this.isBallMoving = true;
+            
+            // Reset session counter when ball is thrown
+            this.sessionBounces = 0;
+            this.updateCounters();
             
             // DON'T reset cloud and sun velocities - let them keep moving
             // Only reset if they're not already moving
@@ -255,6 +264,9 @@ if (typeof Phaser === 'undefined') {
             // Add rotation to cloud on bounce
             const rotationSpeed = Phaser.Math.Between(-1, 1); // Random rotation speed
             cloud.setAngularVelocity(rotationSpeed * 100); // Degrees per second
+            
+            // Increment bounce counter
+            this.incrementBounceCounter();
         }
         
         handleBallSunCollision(ball, sun) {
@@ -283,6 +295,9 @@ if (typeof Phaser === 'undefined') {
             // Add rotation to sun on bounce
             const rotationSpeed = Phaser.Math.Between(-0.5, 0.5); // Slower rotation for sun
             this.sun.setAngularVelocity(rotationSpeed * 50); // Degrees per second
+            
+            // Increment bounce counter
+            this.incrementBounceCounter();
         }
         
         // Add soft collision handling for cloud-cloud and cloud-sun collisions
@@ -317,6 +332,9 @@ if (typeof Phaser === 'undefined') {
             // Add rotation to both clouds on collision
             cloud1.setAngularVelocity(Phaser.Math.Between(-1, 1) * 50);
             cloud2.setAngularVelocity(Phaser.Math.Between(-1, 1) * 50);
+            
+            // Increment bounce counter for cloud-cloud collisions
+            this.incrementBounceCounter();
         }
         
         handleCloudSunCollision(cloud, sun) {
@@ -350,6 +368,9 @@ if (typeof Phaser === 'undefined') {
             // Add rotation to both objects on collision
             cloud.setAngularVelocity(Phaser.Math.Between(-1, 1) * 50);
             sun.setAngularVelocity(Phaser.Math.Between(-0.5, 0.5) * 50);
+            
+            // Increment bounce counter for cloud-sun collisions
+            this.incrementBounceCounter();
         }
         
         handleResizeCollisions(oldWidth, oldHeight, newWidth, newHeight) {
@@ -505,6 +526,24 @@ if (typeof Phaser === 'undefined') {
                 }
             });
             
+            // Apply tiny damping to sun to make it slow down gradually
+            if (this.sun && this.sun.body && this.sun.body.velocity) {
+                const velX = this.sun.body.velocity.x;
+                const velY = this.sun.body.velocity.y;
+                
+                // Apply very subtle damping to sun movement
+                if (Math.abs(velX) < 50 && Math.abs(velY) < 50) {
+                    this.sun.setVelocity(velX * 0.994375, velY * 0.994375); // 0.5625% damping (25% of 0.75%)
+                } else {
+                    this.sun.setVelocity(velX * 0.9971875, velY * 0.9971875); // 0.28125% damping (25% of 0.375%)
+                }
+                
+                // Dampen sun rotation as well (25% of previous damping)
+                if (this.sun.body.angularVelocity !== 0) {
+                    this.sun.setAngularVelocity(this.sun.body.angularVelocity * 0.994375); // 0.5625% rotation damping (25% of 0.75%)
+                }
+            }
+            
             if (this.sun.y > this.gameHeight - this.grassHeight - this.sun.height/2 + 20) { // +20 for softer collision
                 this.sun.y = this.gameHeight - this.grassHeight - this.sun.height/2;
                 if (this.sun.body.velocity) {
@@ -540,6 +579,25 @@ if (typeof Phaser === 'undefined') {
             }
         }
         
+        updateCounters() {
+            // Update the counter displays if elements exist
+            const totalElement = document.getElementById('total-count');
+            const sessionElement = document.getElementById('session-count');
+            
+            if (totalElement) {
+                totalElement.textContent = this.totalBounces;
+            }
+            if (sessionElement) {
+                sessionElement.textContent = this.sessionBounces;
+            }
+        }
+        
+        incrementBounceCounter() {
+            this.totalBounces++;
+            this.sessionBounces++;
+            this.updateCounters();
+        }
+        
         resetGame() {
             // Reset ball position and velocity
             this.ball.setPosition(this.gameWidth/2, this.gameHeight - this.grassHeight - 50);
@@ -569,6 +627,10 @@ if (typeof Phaser === 'undefined') {
             
             // Reset game state
             this.isBallMoving = false;
+            
+            // Reset session counter
+            this.sessionBounces = 0;
+            this.updateCounters();
         }
     }
     
