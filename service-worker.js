@@ -1,5 +1,5 @@
 // Basic service worker for PWA support
-const CACHE_NAME = 'baby-ball-game-v2';
+const CACHE_NAME = 'baby-ball-game-v3';
 const urlsToCache = [
   './',
   'index.html',
@@ -11,7 +11,8 @@ const urlsToCache = [
   'icon-512x512.png',
   'svg/ball.svg',
   'svg/cloud.svg',
-  'svg/sun.svg'
+  'svg/sun.svg',
+  'svg/reset.svg'
 ];
 
 self.addEventListener('install', event => {

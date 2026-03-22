@@ -63,7 +63,16 @@ if (typeof Phaser === 'undefined') {
 
             // Remove gravity from sun
             this.sun.body.allowGravity = false;
-            this.sun.body.setCircle(this.sun.width * 0.4); // 80% circle of display size
+            this.sun.body.setCircle(this.sun.width * 0.25); // Smaller hitbox
+            
+            // Determine screen mode based on width
+            if (this.gameWidth >= 1200) {
+                this.screenMode = "largeScreen";
+            } else if (this.gameWidth >= 800) {
+                this.screenMode = "mediumScreen";
+            } else {
+                this.screenMode = "smallScreen";
+            }
 
             // Create clouds (NO GRAVITY - only move when hit)
             const cloudTextures = ["cloud"];
@@ -82,7 +91,7 @@ if (typeof Phaser === 'undefined') {
                 cloud.setImmovable(true);
                 cloud.setVelocity(0, 0);
                 cloud.body.allowGravity = false;
-                cloud.body.setCircle(cloud.width * 0.33); // Sized to fit in the middle
+                cloud.body.setCircle(cloud.width * 0.15); // Smaller hitbox, centered in the cloud asset
                 this.clouds.push(cloud);
             }
 
@@ -722,11 +731,13 @@ if (typeof Phaser === 'undefined') {
             this.ball.setPosition(this.gameWidth / 2, this.gameHeight - this.grassHeight - 50);
             this.ball.setVelocity(0, 0);
             this.ball.setAngularVelocity(0);
+            this.ball.setAngle(0);
 
             // Reset sun position and velocity (always top-left corner)
             this.sun.setPosition(60, 60);
             this.sun.setVelocity(0, 0);
             this.sun.setAngularVelocity(0);
+            this.sun.setAngle(0);
             this.sun.setImmovable(true);
 
             // Reset clouds positions and velocities
@@ -738,6 +749,7 @@ if (typeof Phaser === 'undefined') {
                 );
                 cloud.setVelocity(0, 0);
                 cloud.setAngularVelocity(0);
+                cloud.setAngle(0);
                 cloud.setImmovable(true);
             });
 
