@@ -189,17 +189,26 @@
                     this.ball = this.physics.add.sprite(this.gameWidth/2, this.gameHeight - this.grassHeight - 50, 'ball');
                     this.ball.setBounce(0.6);
                     this.ball.setCollideWorldBounds(true);
-                    this.ball.body.setCircle(40); // 80% of real size (50) for soft collision
+                    // Create sun (NO GRAVITY - only moves when hit)
+                    const playAreaHeight = this.gameHeight - this.grassHeight;
+                    this.sun = this.physics.add.sprite(
+                        Phaser.Math.Between(50, this.gameWidth - 50),
+                        Phaser.Math.Between(50, playAreaHeight * 0.2),
+                        'sun'
+                    );
+                    this.sun.setBounce(1.0);
+                    this.sun.setCollideWorldBounds(true);
+                    this.sun.setImmovable(true);
+                    this.sun.setVelocity(0, 0);
+                    
+                    // Remove gravity from sun
+                    this.sun.body.allowGravity = false;
+                    this.sun.body.setCircle(32); // 80% of real size (40) for soft collision
                     
                     // Create clouds (NO GRAVITY - only move when hit)
-                                        this.clouds = [];
-                    const playAreaHeight = this.gameHeight - this.grassHeight;
-
-                    // Determine number of clouds based on screen width
-                    const cloudCount = this.gameWidth > 1200 ? 6 : (this.gameWidth > 1000 ? 4 : 3);
-                    const cloudTextures = ['cloud', 'cloud2', 'cloud3'];
-
-                    // Create clouds based on count
+                    const cloudTextures = ["cloud", "cloud2", "cloud3"];
+                    const cloudCount = this.screenMode === "largeScreen" ? 6 : (this.screenMode === "mediumScreen" ? 4 : 3);
+                    this.clouds = [];
                     for (let i = 0; i < cloudCount; i++) {
                         const texture = cloudTextures[i % cloudTextures.length];
                         const cloud = this.physics.add.sprite(
@@ -215,21 +224,6 @@
                         cloud.body.setCircle(50);
                         this.clouds.push(cloud);
                     }
-                    
-                    // Create sun (NO GRAVITY - only moves when hit)
-                    this.sun = this.physics.add.sprite(
-                        Phaser.Math.Between(50, this.gameWidth - 50),
-                        Phaser.Math.Between(50, playAreaHeight * 0.2),
-                        'sun'
-                    );
-                    this.sun.setBounce(1.0);
-                    this.sun.setCollideWorldBounds(true);
-                    this.sun.setImmovable(true);
-                    this.sun.setVelocity(0, 0);
-                    
-                    // Remove gravity from sun
-                    this.sun.body.allowGravity = false;
-                    this.sun.body.setCircle(32); // 80% of real size (40) for soft collision
                     
                     // Set up collisions
                     this.physics.add.collider(this.ball, this.clouds, this.handleBallCloudCollision, null, this);
