@@ -64,7 +64,7 @@ if (typeof Phaser === 'undefined') {
             // Remove gravity from sun
             this.sun.body.allowGravity = false;
             this.sun.body.setCircle(this.sun.width * 0.25); // Smaller hitbox
-            
+
             // Determine screen mode based on width
             if (this.gameWidth >= 1200) {
                 this.screenMode = "largeScreen";
@@ -80,18 +80,38 @@ if (typeof Phaser === 'undefined') {
             this.clouds = [];
             for (let i = 0; i < cloudCount; i++) {
                 const texture = cloudTextures[i % cloudTextures.length];
-                const cloud = this.physics.add.sprite(
-                    Phaser.Math.Between(50, this.gameWidth - 50),
-                    Phaser.Math.Between(50, playAreaHeight * 0.7),
-                    texture
-                );
+                let cloudX, cloudY, overlaps;
+                let attempts = 0;
+                do {
+                    cloudX = Phaser.Math.Between(150, this.gameWidth - 150);
+                    cloudY = Phaser.Math.Between(100, playAreaHeight * 0.7);
+                    overlaps = false;
+                    // Check against other clouds
+                    for (const existingCloud of this.clouds) {
+                        const dist = Phaser.Math.Distance.Between(cloudX, cloudY, existingCloud.x, existingCloud.y);
+                        if (dist < 250) { // Width is 225, so 250 gives a small gap
+                            overlaps = true;
+                            break;
+                        }
+                    }
+                    // Check against sun
+                    if (this.sun) {
+                        const distToSun = Phaser.Math.Distance.Between(cloudX, cloudY, this.sun.x, this.sun.y);
+                        if (distToSun < 200) {
+                            overlaps = true;
+                        }
+                    }
+                    attempts++;
+                } while (overlaps && attempts < 100);
+
+                const cloud = this.physics.add.sprite(cloudX, cloudY, texture);
                 cloud.setDisplaySize(225, 225);
                 cloud.setBounce(1.0);
                 cloud.setCollideWorldBounds(true);
                 cloud.setImmovable(true);
                 cloud.setVelocity(0, 0);
                 cloud.body.allowGravity = false;
-                cloud.body.setCircle(cloud.width * 0.15); // Smaller hitbox, centered in the cloud asset
+                cloud.body.setCircle(cloud.width * 0.2); // Balanced middle ground size
                 this.clouds.push(cloud);
             }
 
@@ -195,7 +215,7 @@ if (typeof Phaser === 'undefined') {
             // Set cloud velocity based on ball velocity and angle - 1.5x speed
             const ballVelocity = ball.body.velocity;
             let speed = Math.sqrt(ballVelocity.x * ballVelocity.x + ballVelocity.y * ballVelocity.y);
-            
+
             // Ensure a minimum "profound" bounce speed
             speed = Math.max(speed, 300);
 
@@ -236,7 +256,7 @@ if (typeof Phaser === 'undefined') {
             // Set sun velocity based on ball velocity and angle (half speed of clouds)
             const ballVelocity = ball.body.velocity;
             let speed = Math.sqrt(ballVelocity.x * ballVelocity.x + ballVelocity.y * ballVelocity.y);
-            
+
             // Ensure a minimum "profound" bounce speed
             speed = Math.max(speed, 250);
 
@@ -282,7 +302,7 @@ if (typeof Phaser === 'undefined') {
 
             // Softer collision response with 25% energy loss (-25% speed)
             let speed = Math.sqrt(relVelX * relVelX + relVelY * relVelY);
-            
+
             // Ensure a minimum "profound" bounce speed
             speed = Math.max(speed, 150);
 
@@ -328,7 +348,7 @@ if (typeof Phaser === 'undefined') {
 
             // Softer collision response with 10% energy loss
             let speed = Math.sqrt(relVelX * relVelX + relVelY * relVelY);
-            
+
             // Ensure a minimum "profound" bounce speed
             speed = Math.max(speed, 150);
 
@@ -742,15 +762,36 @@ if (typeof Phaser === 'undefined') {
 
             // Reset clouds positions and velocities
             const playAreaHeight = this.gameHeight - this.grassHeight;
+            const placedClouds = [];
             this.clouds.forEach(cloud => {
-                cloud.setPosition(
-                    Phaser.Math.Between(50, this.gameWidth - 50),
-                    Phaser.Math.Between(50, playAreaHeight * 0.7)
-                );
+                let cloudX, cloudY, overlaps;
+                let attempts = 0;
+                do {
+                    cloudX = Phaser.Math.Between(150, this.gameWidth - 150);
+                    cloudY = Phaser.Math.Between(100, playAreaHeight * 0.7);
+                    overlaps = false;
+                    // Check against other reset clouds
+                    for (const pc of placedClouds) {
+                        const dist = Phaser.Math.Distance.Between(cloudX, cloudY, pc.x, pc.y);
+                        if (dist < 250) {
+                            overlaps = true;
+                            break;
+                        }
+                    }
+                    // Check against sun
+                    const distToSun = Phaser.Math.Distance.Between(cloudX, cloudY, this.sun.x, this.sun.y);
+                    if (distToSun < 200) {
+                        overlaps = true;
+                    }
+                    attempts++;
+                } while (overlaps && attempts < 100);
+
+                cloud.setPosition(cloudX, cloudY);
                 cloud.setVelocity(0, 0);
                 cloud.setAngularVelocity(0);
                 cloud.setAngle(0);
                 cloud.setImmovable(true);
+                placedClouds.push({ x: cloudX, y: cloudY });
             });
 
             // Reset game state
