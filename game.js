@@ -955,6 +955,18 @@ if (typeof Phaser === 'undefined') {
             this.sessionBounces = 0;
             this.updateCounters();
         }
+
+        toggleMute() {
+            // Toggle the master mute setting in Phaser
+            this.sound.mute = !this.sound.mute;
+            
+            // Toggle the 'muted' class on the button itself
+            const muteButton = document.getElementById('mute-button');
+            if (muteButton) {
+                muteButton.classList.toggle('muted', this.sound.mute);
+            }
+            return this.sound.mute;
+        }
     }
 
     // Make game take up full screen with proper vertical resizing
@@ -1050,5 +1062,18 @@ if (typeof Phaser === 'undefined') {
         }
         // Blur the button to remove focus
         document.getElementById('reset-button').blur();
+    });
+
+    // Add mute button event listener
+    document.getElementById('mute-button').addEventListener('click', (event) => {
+        event.preventDefault();
+        if (game.scene.scenes.length > 0) {
+            const scene = game.scene.scenes[0];
+            if (scene.toggleMute) {
+                scene.toggleMute();
+            }
+        }
+        // Blur the button to remove focus
+        document.getElementById('mute-button').blur();
     });
 }

@@ -32,9 +32,8 @@ body {
     }
 }
 
-#reset-button {
+.side-button {
     position: fixed;
-    bottom: 20px;
     right: 20px;
     width: 50px;
     height: 50px;
@@ -54,7 +53,23 @@ body {
     transform: rotate(0deg);
 }
 
-#reset-button:focus {
+#reset-button {
+    bottom: 20px;
+}
+
+#mute-button {
+    bottom: 90px; /* 20 + 50 + 20 gap */
+    background-image: url('svg/speaker.svg');
+    background-repeat: no-repeat;
+    background-position: center;
+    background-size: 28px;
+}
+
+#mute-button.muted {
+    background-image: url('svg/mute.svg');
+}
+
+.side-button:focus {
     outline: none;
 }
 
@@ -83,14 +98,28 @@ body {
     font-weight: bold;
 }
 
-#reset-button:hover {
+.side-button:hover {
     background-color: #45a049;
-    transform: rotate(90deg);
     box-shadow: 0 4px 15px rgba(0,0,0,0.4);
 }
 
-#reset-button:active {
+#reset-button:hover {
+    transform: rotate(90deg);
+}
+
+#mute-button:hover {
+    transform: scale(1.1);
+}
+
+.side-button:active {
     background-color: #3d8b40;
-    transform: rotate(45deg);
     box-shadow: 0 2px 8px rgba(0,0,0,0.2);
+}
+
+#reset-button:active {
+    transform: rotate(45deg);
+}
+
+#mute-button:active {
+    transform: scale(0.95);
 }
