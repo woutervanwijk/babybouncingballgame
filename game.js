@@ -38,8 +38,8 @@ if (typeof Phaser === 'undefined') {
 
         create() {
             // Initialize sound effects
-            this.bounceSound = this.sound.add('bounce', { volume: 0.6 });
-            this.throwSound = this.sound.add('throw', { volume: 0.3 }); // Lowered for longer sound
+            this.bounceSound = this.sound.add('bounce', { volume: 0.45 });
+            this.throwSound = this.sound.add('throw', { volume: 0.225 }); // Lowered for longer sound
 
             // Set up physics - only ball has gravity
             this.physics.world.gravity.y = 300;
@@ -773,8 +773,8 @@ if (typeof Phaser === 'undefined') {
                     this.sun.setVelocity(this.sun.body.velocity.x * 0.9, -Math.abs(this.sun.body.velocity.y) * 0.7); // Softer bounce
                 }
             }
-            // Limit ball bounce to half of grass height
-            const maxBounceHeight = this.gameHeight - this.grassHeight / 2;
+            // Limit ball bounce to half of grass height, raised 10px higher
+            const maxBounceHeight = this.gameHeight - this.grassHeight / 2 - 10;
             if (this.ball.y > maxBounceHeight) {
                 // If ball is falling slowly, just settle it on the grass
                 if (Math.abs(this.ball.body.velocity.y) < 30) {
