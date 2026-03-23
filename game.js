@@ -162,7 +162,7 @@ if (typeof Phaser === 'undefined') {
             this.input.keyboard.on('keyup', (event) => {
                 // Any key release throws the ball
                 if (event.key.length === 1) {
-                    this.throwBallInDirection();
+                    this.throwBallInDirection(true); // True means from keyboard
                 }
             }, this);
 
@@ -185,7 +185,7 @@ if (typeof Phaser === 'undefined') {
 
             this.input.on('pointerup', (pointer) => {
                 if (this.isAiming) {
-                    this.throwBallInDirection();
+                    this.throwBallInDirection(false); // False means from pointer (mouse/touch)
                 }
             }, this);
 
@@ -322,23 +322,23 @@ if (typeof Phaser === 'undefined') {
             const angle = Phaser.Math.Angle.Between(ball.x, ball.y, cloud.x, cloud.y);
 
             // Add a "profound" nudge to separate them immediately
-            const nudgeOffset = 15;
+            const nudgeOffset = 20; // Increased from 15 (lighter/poushier)
             ball.x -= Math.cos(angle) * nudgeOffset;
             ball.y -= Math.sin(angle) * nudgeOffset;
             cloud.x += Math.cos(angle) * nudgeOffset;
             cloud.y += Math.sin(angle) * nudgeOffset;
 
-            // Set cloud velocity based on ball velocity and angle - 1.5x speed
+            // Set cloud velocity based on ball velocity and angle - 1.5x speed (Lighter)
             const ballVelocity = ball.body.velocity;
             let speed = Math.sqrt(ballVelocity.x * ballVelocity.x + ballVelocity.y * ballVelocity.y);
 
             // Ensure a minimum "profound" bounce speed
-            speed = Math.max(speed, 300);
+            speed = Math.max(speed, 350); // Increased from 300
 
             // Softer collision with 25% energy loss (-25% speed)
             cloud.setVelocity(
-                Math.cos(angle) * speed * 1.2 * 0.75, // 25% reduction
-                Math.sin(angle) * speed * 1.2 * 0.75   // 25% reduction
+                Math.cos(angle) * speed * 1.5 * 0.75, // Increased from 1.2
+                Math.sin(angle) * speed * 1.5 * 0.75   // Increased from 1.2
             );
 
             // Also reduce ball's speed by 25% for more realistic physics
@@ -366,23 +366,23 @@ if (typeof Phaser === 'undefined') {
             const angle = Phaser.Math.Angle.Between(ball.x, ball.y, sun.x, sun.y);
 
             // Add a "profound" nudge to separate them immediately
-            const nudgeOffset = 15;
-            ball.x -= Math.cos(angle) * nudgeOffset;
-            ball.y -= Math.sin(angle) * nudgeOffset;
+            const nudgeOffset = 4; // Halved from 8 (double heavy)
+            ball.x -= Math.cos(angle) * (nudgeOffset * 4); // Ball still bounces away
+            ball.y -= Math.sin(angle) * (nudgeOffset * 4);
             sun.x += Math.cos(angle) * nudgeOffset;
             sun.y += Math.sin(angle) * nudgeOffset;
 
-            // Set sun velocity based on ball velocity and angle (half speed of clouds)
+            // Set sun velocity based on ball velocity and angle (Heavier)
             const ballVelocity = ball.body.velocity;
             let speed = Math.sqrt(ballVelocity.x * ballVelocity.x + ballVelocity.y * ballVelocity.y);
 
             // Ensure a minimum "profound" bounce speed
-            speed = Math.max(speed, 250);
+            speed = Math.max(speed, 150); // Decreased from 250
 
             // Softer collision with 25% energy loss (-25% speed)
             sun.setVelocity(
-                Math.cos(angle) * speed * 0.6 * 0.75, // 25% reduction
-                Math.sin(angle) * speed * 0.6 * 0.75   // 25% reduction
+                Math.cos(angle) * speed * 0.15 * 0.75, // Halved from 0.3
+                Math.sin(angle) * speed * 0.15 * 0.75   // Halved from 0.3
             );
 
             // Also reduce ball's speed by 25% for more realistic physics
@@ -429,8 +429,8 @@ if (typeof Phaser === 'undefined') {
             speed = Math.max(speed, 150);
 
             // Apply softer bounce with some overlap allowed and 25% energy loss
-            const bounceX = Math.cos(angle) * speed * 0.6 * 0.75; // 25% reduction
-            const bounceY = Math.sin(angle) * speed * 0.6 * 0.75; // 25% reduction
+            const bounceX = Math.cos(angle) * speed * 0.9 * 0.75; // Increased from 0.6
+            const bounceY = Math.sin(angle) * speed * 0.9 * 0.75; // Increased from 0.6
 
             cloud1.setVelocity(
                 (vel1.x - bounceX) * 0.75, // 25% reduction
@@ -475,8 +475,8 @@ if (typeof Phaser === 'undefined') {
             speed = Math.max(speed, 150);
 
             // Apply softer bounce with 25% energy loss (-25% speed)
-            const bounceX = Math.cos(angle) * speed * 0.5 * 0.75; // 25% reduction
-            const bounceY = Math.sin(angle) * speed * 0.5 * 0.75; // 25% reduction
+            const bounceX = Math.cos(angle) * speed * 0.15 * 0.75; // Halved from 0.3
+            const bounceY = Math.sin(angle) * speed * 0.15 * 0.75; // Halved from 0.3
 
             cloud.setVelocity(
                 (cloudVel.x - bounceX) * 0.75, // 25% reduction
@@ -742,6 +742,9 @@ if (typeof Phaser === 'undefined') {
         }
 
         startCentrifugeAiming() {
+            // Never start aiming if we are in the middle of a drag or just finished one
+            if (this.isDragging || Date.now() - this.lastDragEndTime < 300) return;
+
             this.isAiming = true;
             this.directionIndicator.visible = false; // Start hidden
             this.keyDownTime = Date.now();
@@ -811,15 +814,15 @@ if (typeof Phaser === 'undefined') {
             graphics.fillPath();
         }
 
-        throwBallInDirection() {
+        throwBallInDirection(fromKeyboard = false) {
             if (!this.isAiming) return;
 
             // Calculate press duration
             const pressDuration = Date.now() - this.keyDownTime;
 
             // Prevent accidental "double throws" from quick background taps while dragging/flicking
-            // If it's a very fast pointer tap (not keyboard), ignore it if it's less than 50ms
-            if (this.input.activePointer.wasTouch && pressDuration < 60) {
+            // If it's a mouse/touch interaction (not keyboard), ignore it if it's less than 40ms
+            if (!fromKeyboard && pressDuration < 40) {
                 this.isAiming = false;
                 this.directionIndicator.visible = false;
                 if (this.arrowShowTimeout) {
@@ -878,16 +881,8 @@ if (typeof Phaser === 'undefined') {
             // Update counters (session counter was already reset when arrow appeared)
             this.updateCounters();
 
-            // DON'T reset cloud and sun velocities - let them keep moving
-            // Only reset if they're not already moving
-            this.clouds.forEach(cloud => {
-                if (cloud.body.velocity.x === 0 && cloud.body.velocity.y === 0) {
-                    cloud.setImmovable(true);
-                }
-            });
-            if (this.sun.body.velocity.x === 0 && this.sun.body.velocity.y === 0) {
-                this.sun.setImmovable(true);
-            }
+            // Removed the code that set objects to 'immovable' here.
+            // Objects now slow down naturally via damping, which prevents accidental 'freezing'.
         }
 
         updateCounters() {
