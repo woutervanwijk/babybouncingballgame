@@ -41,6 +41,26 @@ if (typeof Phaser === 'undefined') {
             this.bounceSound = this.sound.add('bounce', { volume: 0.45 });
             this.throwSound = this.sound.add('throw', { volume: 0.225 }); // Lowered for longer sound
 
+            // Load saved mute state or detect if browser requires user gesture
+            try {
+                const savedMuteState = localStorage.getItem('babyBallGameMuted');
+                if (savedMuteState !== null) {
+                    this.sound.mute = savedMuteState === 'true';
+                } else {
+                    // If no saved preference, default to muted if browser blocks autoplay
+                    this.sound.mute = this.sound.locked;
+                }
+            } catch (e) {
+                // Fallback if localStorage is unavailable
+                this.sound.mute = this.sound.locked;
+            }
+
+            // Initialize UI to match current mute state
+            const muteButton = document.getElementById('mute-button');
+            if (muteButton) {
+                muteButton.classList.toggle('muted', this.sound.mute);
+            }
+
             // Set up physics - only ball has gravity
             this.physics.world.gravity.y = 300;
 
@@ -1073,6 +1093,14 @@ if (typeof Phaser === 'undefined') {
             if (muteButton) {
                 muteButton.classList.toggle('muted', this.sound.mute);
             }
+
+            // Save preference
+            try {
+                localStorage.setItem('babyBallGameMuted', this.sound.mute);
+            } catch (e) { 
+                // Ignore storage errors
+            }
+
             return this.sound.mute;
         }
     }
