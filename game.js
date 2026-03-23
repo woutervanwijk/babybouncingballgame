@@ -190,12 +190,32 @@ if (typeof Phaser === 'undefined') {
                 }
             }, this);
 
-            // Make objects interactive and draggable
-            this.ball.setInteractive({ draggable: true, useHandCursor: true });
-            this.sun.setInteractive({ draggable: true, useHandCursor: true });
-            this.clouds.forEach(cloud => {
-                cloud.setInteractive({ draggable: true, useHandCursor: true });
+            // Make objects interactive and draggable with explicit circular grab bounds
+            this.ball.setInteractive({
+                hitArea: new Phaser.Geom.Circle(this.ball.width / 2, this.ball.height / 2, this.ball.width / 2),
+                hitAreaCallback: Phaser.Geom.Circle.Contains,
+                draggable: true, 
+                useHandCursor: true
             });
+            
+            this.sun.setInteractive({
+                hitArea: new Phaser.Geom.Circle(this.sun.width / 2, this.sun.height / 2, this.sun.width / 2),
+                hitAreaCallback: Phaser.Geom.Circle.Contains,
+                draggable: true, 
+                useHandCursor: true
+            });
+            
+            this.clouds.forEach(cloud => {
+                // The cloud's grab radius is specifically half its full width as requested (radius = width / 4)
+                cloud.setInteractive({
+                    hitArea: new Phaser.Geom.Circle(cloud.width / 2, cloud.height / 2, cloud.width / 4),
+                    hitAreaCallback: Phaser.Geom.Circle.Contains,
+                    draggable: true, 
+                    useHandCursor: true
+                });
+            });
+
+
 
             // Pointer/touch input for centrifuge aiming
             this.input.on('pointerdown', (pointer, currentlyOver) => {
@@ -682,6 +702,8 @@ if (typeof Phaser === 'undefined') {
         }
 
         update() {
+
+            
             // Spin the arrow continuously when aiming (centrifuge effect)
             if (this.isAiming) {
                 // Add rotation speed in the random direction
