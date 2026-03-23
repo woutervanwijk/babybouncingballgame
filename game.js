@@ -27,10 +27,18 @@ if (typeof Phaser === 'undefined') {
             this.load.svg('cloud', 'svg/cloud.svg', { width: 450, height: 450 });
             this.load.svg('sun', 'svg/sun.svg', { width: 240, height: 240 });
             this.load.svg('ball', 'svg/ball.svg', { width: 200, height: 200 });
+
+            // Load sound effects
+            this.load.audio('bounce', 'assets/audio/bounce.mp3');
+            this.load.audio('throw', 'assets/audio/throw.mp3');
         }
 
 
         create() {
+            // Initialize sound effects
+            this.bounceSound = this.sound.add('bounce', { volume: 0.6 });
+            this.throwSound = this.sound.add('throw', { volume: 0.3 }); // Lowered for longer sound
+
             // Set up physics - only ball has gravity
             this.physics.world.gravity.y = 300;
 
@@ -53,9 +61,20 @@ if (typeof Phaser === 'undefined') {
             this.ball.setDisplaySize(90, 90);
             this.ball.setBounce(0.6);
             this.ball.setCollideWorldBounds(true);
+            this.ball.body.onWorldBounds = true;
             this.ball.setAngularDrag(150); // Natural rotation damping
             this.ball.setDepth(50); // Bring ball to front
             this.ball.body.setCircle(this.ball.width / 2);
+
+            // Play bounce sound when ball hits world bounds
+            this.physics.world.on('worldbounds', (body) => {
+                if (body && body.gameObject === this.ball) {
+                    // Only play if it hits with some force
+                    if (Math.abs(body.velocity.x) > 30 || Math.abs(body.velocity.y) > 30) {
+                        if (this.bounceSound) this.bounceSound.play();
+                    }
+                }
+            });
             // Create sun (NO GRAVITY - only moves when hit)
             const playAreaHeight = this.gameHeight - this.grassHeight;
             this.sun = this.physics.add.sprite(120, 120, 'sun');
@@ -217,6 +236,11 @@ if (typeof Phaser === 'undefined') {
                     
                     // Add rotation based on flick
                     gameObject.setAngularVelocity(finalVelX * 0.75);
+
+                    // Play throw sound if it was a significant flick
+                    if (Math.abs(finalVelX) > 200 || Math.abs(finalVelY) > 200) {
+                        if (this.throwSound) this.throwSound.play();
+                    }
                 }
                 
                 // If ball was thrown/flicked, reset session counter
@@ -254,12 +278,14 @@ if (typeof Phaser === 'undefined') {
             const velX = Math.cos(angleInRadians) * speed * 2; // Double horizontal
             const velY = -Math.sin(angleInRadians) * speed * 2; // Keep double vertical
 
-            // Randomly choose left or right direction
             if (Phaser.Math.FloatBetween(0, 1) > 0.5) {
                 this.ball.setVelocity(-velX, velY);
             } else {
                 this.ball.setVelocity(velX, velY);
             }
+
+            // Play throw sound
+            if (this.throwSound) this.throwSound.play();
 
             // Set natural rotation based on horizontal velocity
             this.ball.setAngularVelocity(this.ball.body.velocity.x * 0.75);
@@ -678,6 +704,11 @@ if (typeof Phaser === 'undefined') {
             if (this.ball.y > maxBounceHeight) {
                 this.ball.y = maxBounceHeight;
                 if (this.ball.body.velocity) {
+                    // Play bounce sound if velocity is significant
+                    if (Math.abs(this.ball.body.velocity.y) > 30) {
+                        if (this.bounceSound) this.bounceSound.play();
+                    }
+                    
                     // Bounce the ball with reduced velocity
                     const bounceVelocityY = -Math.abs(this.ball.body.velocity.y) * 0.6;
                     const bounceVelocityX = this.ball.body.velocity.x * 0.9;
@@ -819,6 +850,9 @@ if (typeof Phaser === 'undefined') {
             // Apply velocity to ball
             this.ball.setVelocity(velX, velY);
 
+            // Play throw sound
+            if (this.throwSound) this.throwSound.play();
+
             // Set natural rotation based on horizontal velocity
             this.ball.setAngularVelocity(velX * 0.75);
 
@@ -856,6 +890,11 @@ if (typeof Phaser === 'undefined') {
             this.totalBounces++;
             this.sessionBounces++;
             this.updateCounters();
+
+            // Play bounce sound
+            if (this.bounceSound) {
+                this.bounceSound.play();
+            }
         }
 
         resetGame() {
