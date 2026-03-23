@@ -52,11 +52,13 @@ if (typeof Phaser === 'undefined') {
             this.grassHeight = Math.min(this.gameHeight * 0.2, 150); // Max 150px grass
             this.grass = this.add.rectangle(0, this.gameHeight - this.grassHeight / 2,
                 this.gameWidth, this.grassHeight, 0x7CFC00)
-                .setOrigin(0, 0.5);
+                .setOrigin(0, 0.5)
+                .setDepth(0);
 
             // Create sky background (fill remaining space)
-            this.sky = this.add.rectangle(0, 0, this.gameWidth, this.gameHeight - this.grassHeight, 0x87CEEB)
-                .setOrigin(0, 0);
+            this.sky = this.add.rectangle(0, 0, this.gameWidth, this.gameHeight, 0x87CEEB)
+                .setOrigin(0, 0)
+                .setDepth(-10);
 
             // Create ball (only object with gravity) - position above grass
             this.ball = this.physics.add.sprite(this.gameWidth / 2, this.gameHeight - this.grassHeight - 50, 'ball');
@@ -546,11 +548,13 @@ if (typeof Phaser === 'undefined') {
 
             // Update grass and sky to new dimensions
             if (this.grass) {
-                this.grass.setSize(newWidth, this.grassHeight);
+                this.grass.width = newWidth;
+                this.grass.height = this.grassHeight;
                 this.grass.y = newHeight - this.grassHeight / 2;
             }
             if (this.sky) {
-                this.sky.setSize(newWidth, playAreaHeight);
+                this.sky.width = newWidth;
+                this.sky.height = newHeight; // Make sky cover full height so it stays perfectly behind grass
             }
 
             // Check if objects are now outside the new bounds and make them bounce
@@ -1075,12 +1079,17 @@ if (typeof Phaser === 'undefined') {
 
     // Make game take up full screen with proper vertical resizing
     const getGameSize = () => {
-        // Take full screen dimensions
-        const width = window.innerWidth;
-        const height = window.innerHeight;
-
-        // Use full screen without aspect ratio constraints
-        return { width: width, height: height };
+        // Take full screen dimensions from the container which handles 100dvh
+        const container = document.getElementById('game-container');
+        if (container) {
+            return {
+                width: container.clientWidth,
+                height: container.clientHeight
+            };
+        }
+        
+        // Fallback
+        return { width: window.innerWidth, height: window.innerHeight };
     };
 
     const gameSize = getGameSize();

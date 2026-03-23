@@ -26,9 +26,8 @@ body {
 
 @media (orientation: portrait) {
     body {
-        /* Fallback background so safe area around grass is green, but top is sky blue */
+        /* Ensure background is the grass color in case bounds mismatch momentarily */
         background-color: #7CFC00;
-        background-image: linear-gradient(to bottom, #87CEEB 0%, #87CEEB 80%, #7CFC00 80%, #7CFC00 100%);
     }
 }
 
