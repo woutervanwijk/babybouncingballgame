@@ -1,5 +1,5 @@
-// Basic service worker for PWA support
-const CACHE_NAME = 'baby-ball-game-v3';
+// Service worker with Network-First strategy to avoid aggressive caching
+const CACHE_NAME = 'baby-ball-game-v4';
 const urlsToCache = [
   './',
   'index.html',
@@ -16,20 +16,36 @@ const urlsToCache = [
 ];
 
 self.addEventListener('install', event => {
+  // Force the waiting service worker to become the active service worker
+  self.skipWaiting();
+  
   event.waitUntil(
     caches.open(CACHE_NAME)
       .then(cache => {
+        console.log('Opened cache, pre-fetching core assets');
         return cache.addAll(urlsToCache);
       })
   );
 });
 
 self.addEventListener('fetch', event => {
+  // Network-First strategy: try the network first, then fallback to cache
   event.respondWith(
-    caches.match(event.request)
+    fetch(event.request)
       .then(response => {
-        // Return cached response if available, otherwise fetch from network
-        return response || fetch(event.request);
+        // If we have a valid response, clone it and update the cache
+        if (response && response.status === 200 && response.type === 'basic') {
+          const responseToCache = response.clone();
+          caches.open(CACHE_NAME)
+            .then(cache => {
+              cache.put(event.request, responseToCache);
+            });
+        }
+        return response;
+      })
+      .catch(() => {
+        // If network fails (offline), try the cache
+        return caches.match(event.request);
       })
   );
 });
@@ -40,11 +56,14 @@ self.addEventListener('activate', event => {
     caches.keys().then(cacheNames => {
       return Promise.all(
         cacheNames.map(cacheName => {
-          if (cacheWhitelist.indexOf(cacheName) === -1) {
+          if (!cacheWhitelist.includes(cacheName)) {
             return caches.delete(cacheName);
           }
         })
       );
+    }).then(() => {
+      // Allow the service worker to take control of all pages in its scope immediately
+      return self.clients.claim();
     })
   );
 });
