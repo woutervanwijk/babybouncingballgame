@@ -18,6 +18,8 @@ if (typeof Phaser === 'undefined') {
             this.rotationSpeed = 0.05; // Radians per frame (slower for smoother rotation)
             this.rotationDirection = 1; // 1 for clockwise, -1 for counter-clockwise
             this.arrowShowTimeout = null; // Timeout for showing arrow
+            this.isDragging = false; // Track if an object is being dragged
+            this.lastDragEndTime = 0; // Timestamp of last drag end
         }
 
         preload() {
@@ -174,7 +176,9 @@ if (typeof Phaser === 'undefined') {
             // Pointer/touch input for centrifuge aiming
             this.input.on('pointerdown', (pointer, currentlyOver) => {
                 // Only start aiming if we didn't click on an interactive object
-                if (currentlyOver.length === 0) {
+                // AND we're not already dragging something else
+                // AND it's been a moment since the last drag ended (prevents double-tap issues)
+                if (currentlyOver.length === 0 && !this.isDragging && Date.now() - this.lastDragEndTime > 150) {
                     this.startCentrifugeAiming();
                 }
             }, this);
@@ -185,7 +189,6 @@ if (typeof Phaser === 'undefined') {
                 }
             }, this);
 
-            // Handle Drag Events
             this.input.on('dragstart', (pointer, gameObject) => {
                 // If we were aiming (centrifuge), cancel it if we start dragging
                 if (this.isAiming) {
@@ -197,6 +200,7 @@ if (typeof Phaser === 'undefined') {
                     }
                 }
 
+                this.isDragging = true;
                 gameObject.setImmovable(false);
                 if (gameObject.body) {
                     gameObject.body.allowGravity = false;
@@ -220,6 +224,8 @@ if (typeof Phaser === 'undefined') {
             }, this);
 
             this.input.on('dragend', (pointer, gameObject) => {
+                this.isDragging = false;
+                this.lastDragEndTime = Date.now();
                 gameObject.setDepth(gameObject === this.ball ? 50 : 10);
                 
                 if (gameObject.body) {
@@ -808,18 +814,29 @@ if (typeof Phaser === 'undefined') {
         throwBallInDirection() {
             if (!this.isAiming) return;
 
-            this.isAiming = false;
+            // Calculate press duration
+            const pressDuration = Date.now() - this.keyDownTime;
 
+            // Prevent accidental "double throws" from quick background taps while dragging/flicking
+            // If it's a very fast pointer tap (not keyboard), ignore it if it's less than 50ms
+            if (this.input.activePointer.wasTouch && pressDuration < 60) {
+                this.isAiming = false;
+                this.directionIndicator.visible = false;
+                if (this.arrowShowTimeout) {
+                    clearTimeout(this.arrowShowTimeout);
+                    this.arrowShowTimeout = null;
+                }
+                return;
+            }
+
+            this.isAiming = false;
+            this.directionIndicator.visible = false;
+            
             // Clear the arrow show timeout if it exists
             if (this.arrowShowTimeout) {
                 clearTimeout(this.arrowShowTimeout);
                 this.arrowShowTimeout = null;
             }
-
-            this.directionIndicator.visible = false;
-
-            // Calculate press duration
-            const pressDuration = Date.now() - this.keyDownTime;
 
             // Calculate speed based on press duration with step-based halving
             const baseSpeed = Phaser.Math.Between(1600, 2800); // Initial speed for <200ms
@@ -949,6 +966,14 @@ if (typeof Phaser === 'undefined') {
 
             // Reset game state
             this.isBallMoving = false;
+            
+            // Cancel any active aiming
+            this.isAiming = false;
+            this.directionIndicator.visible = false;
+            if (this.arrowShowTimeout) {
+                clearTimeout(this.arrowShowTimeout);
+                this.arrowShowTimeout = null;
+            }
 
             // Reset both counters
             this.totalBounces = 0;
