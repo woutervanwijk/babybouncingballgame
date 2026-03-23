@@ -1,6 +1,6 @@
 {
   "name": "Baby Ball Game",
-  "short_name": "BabyBall",
+  "short_name": "Baby Ball",
   "description": "A fun bouncing ball game for babies",
   "start_url": "./",
   "display": "standalone",
