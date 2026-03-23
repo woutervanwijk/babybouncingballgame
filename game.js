@@ -50,10 +50,11 @@ if (typeof Phaser === 'undefined') {
 
             // Create ball (only object with gravity) - position above grass
             this.ball = this.physics.add.sprite(this.gameWidth / 2, this.gameHeight - this.grassHeight - 50, 'ball');
-            this.ball.setDisplaySize(100, 100);
+            this.ball.setDisplaySize(90, 90);
             this.ball.setBounce(0.6);
             this.ball.setCollideWorldBounds(true);
             this.ball.setAngularDrag(150); // Natural rotation damping
+            this.ball.setDepth(50); // Bring ball to front
             this.ball.body.setCircle(this.ball.width / 2);
             // Create sun (NO GRAVITY - only moves when hit)
             const playAreaHeight = this.gameHeight - this.grassHeight;
@@ -67,8 +68,9 @@ if (typeof Phaser === 'undefined') {
             this.sun.setVelocity(0, 0);
 
             // Remove gravity from sun
+            const sunRadius = this.sun.width * 0.2025; // 10% smaller from 0.225
+            this.sun.body.setCircle(sunRadius, this.sun.width * 0.2975, this.sun.width * 0.2975); // Centered hitbox
             this.sun.body.allowGravity = false;
-            this.sun.body.setCircle(this.sun.width * 0.25); // Smaller hitbox
 
             // Determine screen mode based on width
             if (this.gameWidth >= 1200) {
@@ -115,7 +117,8 @@ if (typeof Phaser === 'undefined') {
                 cloud.setCollideWorldBounds(true);
                 cloud.setImmovable(true);
                 cloud.body.allowGravity = false;
-                cloud.body.setCircle(cloud.width * 0.2); // Balanced middle ground size
+                const cloudRadius = cloud.width * 0.162; // 10% smaller from 0.18
+                cloud.body.setCircle(cloudRadius, cloud.width * 0.338, cloud.width * 0.338); // Centered hitbox
                 cloud.setFlipX(Math.random() < 0.5);
                 cloud.setAngle(Phaser.Math.Between(-5, 5));
                 this.clouds.push(cloud);
@@ -161,6 +164,7 @@ if (typeof Phaser === 'undefined') {
 
             // Create direction indicator (hidden initially)
             this.directionIndicator = this.add.graphics();
+            this.directionIndicator.setDepth(100); // Always stay on top
             this.directionIndicator.visible = false;
 
             // Set world bounds to full screen height
@@ -651,54 +655,52 @@ if (typeof Phaser === 'undefined') {
         updateDirectionIndicator() {
             if (!this.directionIndicator || !this.ball) return;
 
-            this.directionIndicator.clear();
+            const graphics = this.directionIndicator;
+            graphics.clear();
 
-            // Calculate arrow length based on how long the button has been pressed (smooth transition)
+            // Calculate arrow length based on press duration
             const pressDuration = Date.now() - this.keyDownTime;
-
-            // Smooth arrow length calculation: starts at 100, decreases to 40 over 7.5 seconds (3x slower)
-            // Minimum length is 40 to ensure the ball still throws a bit
             const maxLength = 100;
             const minLength = 40;
-            const durationForFullShrink = 7500; // 7.5 seconds to reach minimum length (3x slower)
-
-            // Calculate normalized duration (0 to 1)
+            const durationForFullShrink = 7500;
             const normalizedDuration = Math.min(pressDuration, durationForFullShrink) / durationForFullShrink;
-
-            // Smooth interpolation using ease-out for more natural feel
-            const easeOutDuration = 1 - Math.pow(1 - normalizedDuration, 1.5); // Gentler easing
-
-            // Calculate arrow length
+            const easeOutDuration = 1 - Math.pow(1 - normalizedDuration, 1.5);
             const arrowLength = maxLength - (maxLength - minLength) * easeOutDuration;
 
-            // Draw arrow indicator
-            this.directionIndicator.lineStyle(4, 0xFFFFFF, 1.0);
-            this.directionIndicator.beginPath();
+            // Main arrow geometry
+            const startX = this.ball.x;
+            const startY = this.ball.y;
+            const endX = startX + Math.cos(this.aimAngle) * arrowLength;
+            const endY = startY + Math.sin(this.aimAngle) * arrowLength;
 
-            // Arrow line from ball center to end
-            const endX = this.ball.x + Math.cos(this.aimAngle) * arrowLength;
-            const endY = this.ball.y + Math.sin(this.aimAngle) * arrowLength;
+            // Arrowhead calculations
+            const headLength = arrowLength * 0.1; // Halved from 0.2
+            const headWidth = arrowLength * 0.06; // Halved from 0.12
+            const angle = this.aimAngle;
+            
+            // Vertices for the triangular arrowhead
+            const p1X = endX;
+            const p1Y = endY;
+            const p2X = endX - headLength * Math.cos(angle) + headWidth * Math.sin(angle);
+            const p2Y = endY - headLength * Math.sin(angle) - headWidth * Math.cos(angle);
+            const p3X = endX - headLength * Math.cos(angle) - headWidth * Math.sin(angle);
+            const p3Y = endY - headLength * Math.sin(angle) + headWidth * Math.cos(angle);
 
-            this.directionIndicator.moveTo(this.ball.x, this.ball.y);
-            this.directionIndicator.lineTo(endX, endY);
+            // 1. Draw MAIN BLACK ARROW
+            graphics.lineStyle(3, 0x000000, 1.0); // Halved from 6
+            graphics.beginPath();
+            graphics.moveTo(startX, startY);
+            graphics.lineTo(endX, endY);
+            graphics.strokePath();
 
-            // Arrowhead (size proportional to arrow length)
-            const arrowHeadSize = arrowLength * 0.15;
-            const arrowHeadAngle = Math.PI / 6; // 30 degrees
-
-            this.directionIndicator.lineTo(
-                endX - Math.cos(this.aimAngle - arrowHeadAngle) * arrowHeadSize,
-                endY - Math.sin(this.aimAngle - arrowHeadAngle) * arrowHeadSize
-            );
-
-            this.directionIndicator.moveTo(endX, endY);
-            this.directionIndicator.lineTo(
-                endX - Math.cos(this.aimAngle + arrowHeadAngle) * arrowHeadSize,
-                endY - Math.sin(this.aimAngle + arrowHeadAngle) * arrowHeadSize
-            );
-
-            this.directionIndicator.strokePath();
-            this.directionIndicator.closePath();
+            // Draw black filled arrowhead
+            graphics.fillStyle(0x000000, 1.0);
+            graphics.beginPath();
+            graphics.moveTo(p1X, p1Y);
+            graphics.lineTo(p2X, p2Y);
+            graphics.lineTo(p3X, p3Y);
+            graphics.closePath();
+            graphics.fillPath();
         }
 
         throwBallInDirection() {
