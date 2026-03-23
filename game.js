@@ -92,11 +92,12 @@ if (typeof Phaser === 'undefined') {
             const sunRadius = this.sun.width * 0.2025; // 10% smaller from 0.225
             this.sun.body.setCircle(sunRadius, this.sun.width * 0.2975, this.sun.width * 0.2975); // Centered hitbox
             this.sun.body.allowGravity = false;
+            this.sun.setDepth(10); // Sun stays in back
 
             // Determine screen mode based on width
-            if (this.gameWidth >= 1200) {
+            if (this.gameWidth >= 1200 || this.gameHeight >= 1200) {
                 this.screenMode = "largeScreen";
-            } else if (this.gameWidth >= 800) {
+            } else if (this.gameWidth >= 800 || this.gameHeight >= 800) {
                 this.screenMode = "mediumScreen";
             } else {
                 this.screenMode = "smallScreen";
@@ -104,7 +105,7 @@ if (typeof Phaser === 'undefined') {
 
             // Create clouds (NO GRAVITY - only move when hit)
             const cloudTextures = ["cloud"];
-            const cloudCount = this.screenMode === "largeScreen" ? 6 : (this.screenMode === "mediumScreen" ? 4 : 3);
+            const cloudCount = this.screenMode === "largeScreen" ? 8 : (this.screenMode === "mediumScreen" ? 6 : 4);
             this.clouds = [];
             for (let i = 0; i < cloudCount; i++) {
                 const texture = cloudTextures[i % cloudTextures.length];
@@ -142,6 +143,7 @@ if (typeof Phaser === 'undefined') {
                 cloud.body.setCircle(cloudRadius, cloud.width * 0.338, cloud.width * 0.338); // Centered hitbox
                 cloud.setFlipX(Math.random() < 0.5);
                 cloud.setAngle(Phaser.Math.Between(-5, 5));
+                cloud.setDepth(20); // Clouds stay in front of sun
                 this.clouds.push(cloud);
             }
 
@@ -175,17 +177,42 @@ if (typeof Phaser === 'undefined') {
 
             // Pointer/touch input for centrifuge aiming
             this.input.on('pointerdown', (pointer, currentlyOver) => {
-                // Only start aiming if we didn't click on an interactive object
-                // AND we're not already dragging something else
-                // AND it's been a moment since the last drag ended (prevents double-tap issues)
-                if (currentlyOver.length === 0 && !this.isDragging && Date.now() - this.lastDragEndTime > 150) {
-                    this.startCentrifugeAiming();
-                }
+                // 1. Only start if we didn't click directly on an interactive object
+                // We check both the provided currentlyOver AND a manual hit test for safety
+                const manualHitTest = this.input.hitTestPointer(pointer);
+                if (currentlyOver.length > 0 || manualHitTest.length > 0) return;
+
+                // 2. Cooldown check: don't start if we just finished dragging (prevents double-tap issues)
+                if (this.isDragging || Date.now() - this.lastDragEndTime < 500) return;
+
+                // 3. Safety zone check: don't start if we clicked very near the ball or other objects
+                // This prevents "near misses" from turning into accidental centrifuge throws
+                const objects = [this.ball, this.sun, ...this.clouds];
+                const interactionBuffer = 120; // Radius around object centers to ignore centrifuge starts
+
+                const isNearRelevantObject = objects.some(obj => {
+                    if (!obj || !obj.active) return false;
+                    return Phaser.Math.Distance.Between(pointer.worldX, pointer.worldY, obj.x, obj.y) < interactionBuffer;
+                });
+
+                if (isNearRelevantObject) return;
+
+                this.startCentrifugeAiming();
             }, this);
 
             this.input.on('pointerup', (pointer) => {
-                if (this.isAiming) {
+                // ONLY throw if aiming is active AND we are not in the middle of a drag
+                // AND it's been a moment since the last drag ended (prevents firing during a flick release)
+                if (this.isAiming && !this.isDragging && Date.now() - this.lastDragEndTime > 200) {
                     this.throwBallInDirection(false); // False means from pointer (mouse/touch)
+                } else if (this.isAiming) {
+                    // If we were aiming but it was a "dirty" release, just cancel it
+                    this.isAiming = false;
+                    this.directionIndicator.visible = false;
+                    if (this.arrowShowTimeout) {
+                        clearTimeout(this.arrowShowTimeout);
+                        this.arrowShowTimeout = null;
+                    }
                 }
             }, this);
 
@@ -214,11 +241,13 @@ if (typeof Phaser === 'undefined') {
                 // Smoothly move object to pointer while maintaining physics velocity for collisions
                 if (gameObject.body) {
                     // Update velocity so it can "push" other objects it hits
-                    const velX = (dragX - gameObject.x) * (1000 / this.game.loop.delta);
-                    const velY = (dragY - gameObject.y) * (1000 / this.game.loop.delta);
+                    // Cap the delta to prevent velocity spikes when frames are dropped
+                    const safeDelta = Math.max(this.game.loop.delta, 8);
+                    const velX = (dragX - gameObject.x) * (1000 / safeDelta);
+                    const velY = (dragY - gameObject.y) * (1000 / safeDelta);
                     gameObject.setVelocity(velX, velY);
                 }
-                
+
                 gameObject.x = dragX;
                 gameObject.y = dragY;
             }, this);
@@ -226,20 +255,29 @@ if (typeof Phaser === 'undefined') {
             this.input.on('dragend', (pointer, gameObject) => {
                 this.isDragging = false;
                 this.lastDragEndTime = Date.now();
-                gameObject.setDepth(gameObject === this.ball ? 50 : 10);
-                
+
+                // Restore original depths: Ball (50) > Clouds (20) > Sun (10)
+                if (gameObject === this.ball) {
+                    gameObject.setDepth(50);
+                } else if (gameObject === this.sun) {
+                    gameObject.setDepth(10);
+                } else {
+                    // It's a cloud
+                    gameObject.setDepth(20);
+                }
+
                 if (gameObject.body) {
                     // Re-enable gravity for ball only
                     if (gameObject === this.ball) {
                         gameObject.body.allowGravity = true;
                     }
-                    
+
                     // Keep a bit of the drag velocity for a "flick" effect
                     const maxFlick = 800;
                     const finalVelX = Phaser.Math.Clamp(gameObject.body.velocity.x, -maxFlick, maxFlick);
                     const finalVelY = Phaser.Math.Clamp(gameObject.body.velocity.y, -maxFlick, maxFlick);
                     gameObject.setVelocity(finalVelX, finalVelY);
-                    
+
                     // Add rotation based on flick
                     gameObject.setAngularVelocity(finalVelX * 0.75);
 
@@ -248,7 +286,7 @@ if (typeof Phaser === 'undefined') {
                         if (this.throwSound) this.throwSound.play();
                     }
                 }
-                
+
                 // If ball was thrown/flicked, reset session counter
                 if (gameObject === this.ball && (Math.abs(gameObject.body.velocity.x) > 100 || Math.abs(gameObject.body.velocity.y) > 100)) {
                     this.isBallMoving = true;
@@ -322,7 +360,8 @@ if (typeof Phaser === 'undefined') {
             const angle = Phaser.Math.Angle.Between(ball.x, ball.y, cloud.x, cloud.y);
 
             // Add a "profound" nudge to separate them immediately
-            const nudgeOffset = 20; // Increased from 15 (lighter/poushier)
+            // Reduced slightly for 120fps precision to keep it smooth
+            const nudgeOffset = 12;
             ball.x -= Math.cos(angle) * nudgeOffset;
             ball.y -= Math.sin(angle) * nudgeOffset;
             cloud.x += Math.cos(angle) * nudgeOffset;
@@ -408,7 +447,7 @@ if (typeof Phaser === 'undefined') {
             const angle = Phaser.Math.Angle.Between(cloud1.x, cloud1.y, cloud2.x, cloud2.y);
 
             // Add a "profound" nudge to separate them immediately
-            const nudgeOffset = 10;
+            const nudgeOffset = 8;
             cloud1.x -= Math.cos(angle) * nudgeOffset;
             cloud1.y -= Math.sin(angle) * nudgeOffset;
             cloud2.x += Math.cos(angle) * nudgeOffset;
@@ -582,8 +621,8 @@ if (typeof Phaser === 'undefined') {
                 }
 
                 // Check top collision with screen top
-                if (this.sun.y - this.sun.height / 2 < 0) {
-                    this.sun.y = this.sun.height / 2;
+                if (this.sun.y - this.sun.displayHeight / 2 < 0) {
+                    this.sun.y = this.sun.displayHeight / 2;
                     if (this.sun.body && this.sun.body.velocity) {
                         const bounceVelocityY = Math.abs(this.sun.body.velocity.y) * 0.7;
                         const bounceVelocityX = this.sun.body.velocity.x * 0.9;
@@ -594,15 +633,16 @@ if (typeof Phaser === 'undefined') {
                 }
 
                 // Check side collisions
-                if (this.sun.x - this.sun.width / 2 < 0) {
-                    this.sun.x = this.sun.width / 2;
+                const currentWidth = this.gameWidth;
+                if (this.sun.x - this.sun.displayWidth / 2 < 0) {
+                    this.sun.x = this.sun.displayWidth / 2;
                     if (this.sun.body && this.sun.body.velocity) {
                         const bounceVelocityX = Math.abs(this.sun.body.velocity.x) * 0.7;
                         const bounceVelocityY = this.sun.body.velocity.y * 0.9;
                         this.sun.setVelocity(bounceVelocityX, bounceVelocityY);
                     }
-                } else if (this.sun.x + this.sun.width / 2 > newWidth) {
-                    this.sun.x = newWidth - this.sun.width / 2;
+                } else if (this.sun.x + this.sun.displayWidth / 2 > currentWidth) {
+                    this.sun.x = currentWidth - this.sun.displayWidth / 2;
                     if (this.sun.body && this.sun.body.velocity) {
                         const bounceVelocityX = -Math.abs(this.sun.body.velocity.x) * 0.7;
                         const bounceVelocityY = this.sun.body.velocity.y * 0.9;
@@ -664,10 +704,33 @@ if (typeof Phaser === 'undefined') {
                     }
                 }
 
-                if (cloud.y > this.gameHeight - this.grassHeight - cloud.height / 2 + 20) { // +20 for softer collision
-                    cloud.y = this.gameHeight - this.grassHeight - cloud.height / 2;
-                    if (cloud.body.velocity) {
-                        cloud.setVelocity(cloud.body.velocity.x * 0.9, -Math.abs(cloud.body.velocity.y) * 0.7); // Softer bounce
+                // Full screen/grass boundary checks mirroring the sun's logic
+                // Check top collision
+                if (cloud.y - cloud.displayHeight / 2 < 0) {
+                    cloud.y = cloud.displayHeight / 2;
+                    if (cloud.body && cloud.body.velocity) {
+                        cloud.setVelocity(cloud.body.velocity.x * 0.9, Math.abs(cloud.body.velocity.y) * 0.7);
+                    }
+                }
+
+                // Check side collisions
+                if (cloud.x - cloud.displayWidth / 2 < 0) {
+                    cloud.x = cloud.displayWidth / 2;
+                    if (cloud.body && cloud.body.velocity) {
+                        cloud.setVelocity(Math.abs(cloud.body.velocity.x) * 0.7, cloud.body.velocity.y * 0.9);
+                    }
+                } else if (cloud.x + cloud.displayWidth / 2 > this.gameWidth) {
+                    cloud.x = this.gameWidth - cloud.displayWidth / 2;
+                    if (cloud.body && cloud.body.velocity) {
+                        cloud.setVelocity(-Math.abs(cloud.body.velocity.x) * 0.7, cloud.body.velocity.y * 0.9);
+                    }
+                }
+
+                // Grass/Ground bounce (bottom boundary)
+                if (cloud.y > this.gameHeight - this.grassHeight - cloud.displayHeight / 2 + 20) {
+                    cloud.y = this.gameHeight - this.grassHeight - cloud.displayHeight / 2;
+                    if (cloud.body && cloud.body.velocity) {
+                        cloud.setVelocity(cloud.body.velocity.x * 0.9, -Math.abs(cloud.body.velocity.y) * 0.7);
                     }
                 }
             });
@@ -698,8 +761,8 @@ if (typeof Phaser === 'undefined') {
                 }
             }
 
-            if (this.sun.y > this.gameHeight - this.grassHeight - this.sun.height / 2 + 20) { // +20 for softer collision
-                this.sun.y = this.gameHeight - this.grassHeight - this.sun.height / 2;
+            if (this.sun.y > this.gameHeight - this.grassHeight - this.sun.displayHeight / 2 + 20) { // +20 for softer collision
+                this.sun.y = this.gameHeight - this.grassHeight - this.sun.displayHeight / 2;
                 if (this.sun.body.velocity) {
                     this.sun.setVelocity(this.sun.body.velocity.x * 0.9, -Math.abs(this.sun.body.velocity.y) * 0.7); // Softer bounce
                 }
@@ -714,7 +777,7 @@ if (typeof Phaser === 'undefined') {
                     if (Math.abs(this.ball.body.velocity.y) > 30) {
                         if (this.bounceSound) this.bounceSound.play();
                     }
-                    
+
                     // Bounce the ball with reduced velocity
                     const bounceVelocityY = -Math.abs(this.ball.body.velocity.y) * 0.6;
                     const bounceVelocityX = this.ball.body.velocity.x * 0.9;
@@ -743,7 +806,7 @@ if (typeof Phaser === 'undefined') {
 
         startCentrifugeAiming() {
             // Never start aiming if we are in the middle of a drag or just finished one
-            if (this.isDragging || Date.now() - this.lastDragEndTime < 300) return;
+            if (this.isDragging || Date.now() - this.lastDragEndTime < 500) return; // Increased from 300
 
             this.isAiming = true;
             this.directionIndicator.visible = false; // Start hidden
@@ -788,7 +851,7 @@ if (typeof Phaser === 'undefined') {
             const headLength = arrowLength * 0.1; // Halved from 0.2
             const headWidth = arrowLength * 0.06; // Halved from 0.12
             const angle = this.aimAngle;
-            
+
             // Vertices for the triangular arrowhead
             const p1X = endX;
             const p1Y = endY;
@@ -834,7 +897,7 @@ if (typeof Phaser === 'undefined') {
 
             this.isAiming = false;
             this.directionIndicator.visible = false;
-            
+
             // Clear the arrow show timeout if it exists
             if (this.arrowShowTimeout) {
                 clearTimeout(this.arrowShowTimeout);
@@ -961,7 +1024,7 @@ if (typeof Phaser === 'undefined') {
 
             // Reset game state
             this.isBallMoving = false;
-            
+
             // Cancel any active aiming
             this.isAiming = false;
             this.directionIndicator.visible = false;
@@ -979,7 +1042,7 @@ if (typeof Phaser === 'undefined') {
         toggleMute() {
             // Toggle the master mute setting in Phaser
             this.sound.mute = !this.sound.mute;
-            
+
             // Toggle the 'muted' class on the button itself
             const muteButton = document.getElementById('mute-button');
             if (muteButton) {
@@ -1009,7 +1072,9 @@ if (typeof Phaser === 'undefined') {
             default: 'arcade',
             arcade: {
                 gravity: { y: 300 },
-                debug: false
+                debug: false,
+                fps: 120, // Doubled precision for high-speed throws
+                fixedStep: true // More consistent simulation
             }
         },
         scene: [BabyBallGame],
