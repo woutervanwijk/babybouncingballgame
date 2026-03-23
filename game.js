@@ -53,11 +53,14 @@ if (typeof Phaser === 'undefined') {
             this.ball.setDisplaySize(100, 100);
             this.ball.setBounce(0.6);
             this.ball.setCollideWorldBounds(true);
+            this.ball.setAngularDrag(150); // Natural rotation damping
             this.ball.body.setCircle(this.ball.width / 2);
             // Create sun (NO GRAVITY - only moves when hit)
             const playAreaHeight = this.gameHeight - this.grassHeight;
-            this.sun = this.physics.add.sprite(60, 60, 'sun');
+            this.sun = this.physics.add.sprite(120, 120, 'sun');
             this.sun.setDisplaySize(120, 120);
+            this.sun.setFlipX(Math.random() < 0.5);
+            this.sun.setAngle(Phaser.Math.Between(-5, 5));
             this.sun.setBounce(1.0);
             this.sun.setCollideWorldBounds(true);
             this.sun.setImmovable(true);
@@ -111,9 +114,10 @@ if (typeof Phaser === 'undefined') {
                 cloud.setBounce(1.0);
                 cloud.setCollideWorldBounds(true);
                 cloud.setImmovable(true);
-                cloud.setVelocity(0, 0);
                 cloud.body.allowGravity = false;
                 cloud.body.setCircle(cloud.width * 0.2); // Balanced middle ground size
+                cloud.setFlipX(Math.random() < 0.5);
+                cloud.setAngle(Phaser.Math.Between(-5, 5));
                 this.clouds.push(cloud);
             }
 
@@ -182,6 +186,9 @@ if (typeof Phaser === 'undefined') {
                 this.ball.setVelocity(velX, velY);
             }
 
+            // Set natural rotation based on horizontal velocity
+            this.ball.setAngularVelocity(this.ball.body.velocity.x * 0.75);
+
             this.isBallMoving = true;
 
             // Reset session counter when ball is thrown
@@ -233,6 +240,9 @@ if (typeof Phaser === 'undefined') {
                 ballVelocity.y * 0.75
             );
 
+            // Add natural rotation based on horizontal velocity after bounce
+            ball.setAngularVelocity(ball.body.velocity.x * 0.75);
+
             // Add rotation to cloud on bounce
             const rotationSpeed = Phaser.Math.Between(-1, 1); // Random rotation speed
             cloud.setAngularVelocity(rotationSpeed * 100); // Degrees per second
@@ -273,6 +283,9 @@ if (typeof Phaser === 'undefined') {
                 ballVelocity.x * 0.75,
                 ballVelocity.y * 0.75
             );
+
+            // Add natural rotation based on horizontal velocity after bounce
+            ball.setAngularVelocity(ball.body.velocity.x * 0.75);
 
             // Add rotation to sun on bounce
             const rotationSpeed = Phaser.Math.Between(-0.5, 0.5); // Slower rotation for sun
@@ -514,6 +527,7 @@ if (typeof Phaser === 'undefined') {
                 Math.abs(this.ball.body.velocity.y) < 5) {
                 this.isBallMoving = false;
                 this.ball.setVelocity(0, 0);
+                this.ball.setAngularVelocity(0);
             }
 
             // Apply minimal damping to clouds to make them stop very gradually
@@ -593,6 +607,9 @@ if (typeof Phaser === 'undefined') {
                     const bounceVelocityY = -Math.abs(this.ball.body.velocity.y) * 0.6;
                     const bounceVelocityX = this.ball.body.velocity.x * 0.9;
                     this.ball.setVelocity(bounceVelocityX, bounceVelocityY);
+
+                    // Add natural rotation from grass bounce
+                    this.ball.setAngularVelocity(bounceVelocityX * 0.75);
                 }
             }
             // Remove manual border collision handling - let Phaser handle it naturally
@@ -617,7 +634,7 @@ if (typeof Phaser === 'undefined') {
             this.directionIndicator.visible = false; // Start hidden
             this.keyDownTime = Date.now();
             // Start with a random angle (different each time)
-            this.aimAngle = Math.random() * Math.PI * 2; // 0 to 2π radians
+            this.aimAngle = Math.PI + Math.random() * Math.PI; // π to 2π radians (top 180 degrees)
             // Random direction: clockwise or counter-clockwise
             this.rotationDirection = Math.random() < 0.5 ? 1 : -1;
             // Reset session counter immediately when aiming starts
@@ -728,6 +745,10 @@ if (typeof Phaser === 'undefined') {
 
             // Apply velocity to ball
             this.ball.setVelocity(velX, velY);
+
+            // Set natural rotation based on horizontal velocity
+            this.ball.setAngularVelocity(velX * 0.75);
+
             this.isBallMoving = true;
 
             // Update counters (session counter was already reset when arrow appeared)
@@ -772,10 +793,11 @@ if (typeof Phaser === 'undefined') {
             this.ball.setAngle(0);
 
             // Reset sun position and velocity (always top-left corner)
-            this.sun.setPosition(60, 60);
+            this.sun.setPosition(120, 120);
             this.sun.setVelocity(0, 0);
             this.sun.setAngularVelocity(0);
-            this.sun.setAngle(0);
+            this.sun.setAngle(Phaser.Math.Between(-5, 5));
+            this.sun.setFlipX(Math.random() < 0.5);
             this.sun.setImmovable(true);
 
             // Reset clouds positions and velocities
@@ -807,7 +829,8 @@ if (typeof Phaser === 'undefined') {
                 cloud.setPosition(cloudX, cloudY);
                 cloud.setVelocity(0, 0);
                 cloud.setAngularVelocity(0);
-                cloud.setAngle(0);
+                cloud.setAngle(Phaser.Math.Between(-5, 5));
+                cloud.setFlipX(Math.random() < 0.5);
                 cloud.setImmovable(true);
                 placedClouds.push({ x: cloudX, y: cloudY });
             });

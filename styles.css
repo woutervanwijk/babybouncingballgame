@@ -60,7 +60,7 @@ body {
 
 .counter {
     position: fixed;
-    top: 20px;
+    top: 40px;
     padding: 8px 12px;
     background-color: rgba(76, 175, 80); /* Green with 80% transparency */
     border-radius: 20px;
