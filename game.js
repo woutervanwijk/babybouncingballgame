@@ -250,6 +250,11 @@ if (typeof Phaser === 'undefined') {
 
                 gameObject.x = dragX;
                 gameObject.y = dragY;
+
+                // If it's the ball, ensure gravity is disabled while dragging
+                if (gameObject === this.ball) {
+                    gameObject.body.allowGravity = false;
+                }
             }, this);
 
             this.input.on('dragend', (pointer, gameObject) => {
@@ -675,6 +680,7 @@ if (typeof Phaser === 'undefined') {
                 this.isBallMoving = false;
                 this.ball.setVelocity(0, 0);
                 this.ball.setAngularVelocity(0);
+                this.ball.body.allowGravity = false; // Temporarily disable gravity to prevent floor jitter
             }
 
             // Apply minimal damping to clouds to make them stop very gradually
@@ -767,26 +773,37 @@ if (typeof Phaser === 'undefined') {
                     this.sun.setVelocity(this.sun.body.velocity.x * 0.9, -Math.abs(this.sun.body.velocity.y) * 0.7); // Softer bounce
                 }
             }
-
             // Limit ball bounce to half of grass height
             const maxBounceHeight = this.gameHeight - this.grassHeight / 2;
             if (this.ball.y > maxBounceHeight) {
-                this.ball.y = maxBounceHeight;
-                if (this.ball.body.velocity) {
-                    // Play bounce sound if velocity is significant
-                    if (Math.abs(this.ball.body.velocity.y) > 30) {
-                        if (this.bounceSound) this.bounceSound.play();
+                // If ball is falling slowly, just settle it on the grass
+                if (Math.abs(this.ball.body.velocity.y) < 30) {
+                    this.ball.y = maxBounceHeight;
+                    this.ball.setVelocity(this.ball.body.velocity.x * 0.9, 0);
+                    if (Math.abs(this.ball.body.velocity.x) < 5) {
+                        this.ball.setVelocity(0, 0);
+                        this.ball.setAngularVelocity(0);
+                        this.isBallMoving = false;
                     }
+                } else {
+                    this.ball.y = maxBounceHeight;
+                    if (this.ball.body.velocity) {
+                        // Play bounce sound if velocity is significant
+                        if (Math.abs(this.ball.body.velocity.y) > 30) {
+                            if (this.bounceSound) this.bounceSound.play();
+                        }
+                        
+                        // Bounce the ball with reduced velocity
+                        const bounceVelocityY = -Math.abs(this.ball.body.velocity.y) * 0.6;
+                        const bounceVelocityX = this.ball.body.velocity.x * 0.9;
+                        this.ball.setVelocity(bounceVelocityX, bounceVelocityY);
 
-                    // Bounce the ball with reduced velocity
-                    const bounceVelocityY = -Math.abs(this.ball.body.velocity.y) * 0.6;
-                    const bounceVelocityX = this.ball.body.velocity.x * 0.9;
-                    this.ball.setVelocity(bounceVelocityX, bounceVelocityY);
-
-                    // Add natural rotation from grass bounce
-                    this.ball.setAngularVelocity(bounceVelocityX * 0.75);
+                        // Add natural rotation from grass bounce
+                        this.ball.setAngularVelocity(bounceVelocityX * 0.75);
+                    }
                 }
             }
+
             // Remove manual border collision handling - let Phaser handle it naturally
             // The ball's collideWorldBounds property will handle border collisions properly
 
@@ -794,8 +811,7 @@ if (typeof Phaser === 'undefined') {
             if (this.isBallMoving &&
                 Math.abs(this.ball.body.velocity.x) < 1 &&
                 Math.abs(this.ball.body.velocity.y) < 1 &&
-                this.ball.body.velocity.x !== 0 &&
-                this.ball.body.velocity.y !== 0) {
+                (this.ball.body.velocity.x !== 0 || this.ball.body.velocity.y !== 0)) { // Only nudge if not completely stopped
                 // Ball is moving very slowly - give it a small random nudge
                 this.ball.setVelocity(
                     this.ball.body.velocity.x + Phaser.Math.Between(-5, 5),
@@ -806,7 +822,12 @@ if (typeof Phaser === 'undefined') {
 
         startCentrifugeAiming() {
             // Never start aiming if we are in the middle of a drag or just finished one
-            if (this.isDragging || Date.now() - this.lastDragEndTime < 500) return; // Increased from 300
+            if (this.isDragging || Date.now() - this.lastDragEndTime < 500) return;
+            
+            // Re-enable gravity for the ball if we start aiming (it might have been disabled while stopped)
+            if (this.ball && this.ball.body) {
+                this.ball.body.allowGravity = true;
+            }
 
             this.isAiming = true;
             this.directionIndicator.visible = false; // Start hidden

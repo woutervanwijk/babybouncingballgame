@@ -1,6 +1,6 @@
 # Baby Bouncing Ball Game
 
-A simple, responsive HTML5 game built with Phaser.js where you can bounce a ball around the screen and interact with clouds and a sun. Perfect for babies and toddlers!
+A simple, responsive HTML5 game built with Phaser.js where you can bounce a ball around the screen and interact with clouds and a sun. Perfect for babies and toddlers! Vibed by Wouter van Wijk with help of Mistral Vibe and Gemini.
 
 **Play it here**: 🎮 [https://woutervanwijk.github.io/babybouncingballgame/](https://woutervanwijk.github.io/babybouncingballgame/)
 
