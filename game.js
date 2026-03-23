@@ -145,14 +145,85 @@ if (typeof Phaser === 'undefined') {
                 }
             }, this);
 
+            // Make objects interactive and draggable
+            this.ball.setInteractive({ draggable: true, useHandCursor: true });
+            this.sun.setInteractive({ draggable: true, useHandCursor: true });
+            this.clouds.forEach(cloud => {
+                cloud.setInteractive({ draggable: true, useHandCursor: true });
+            });
+
             // Pointer/touch input for centrifuge aiming
-            this.input.on('pointerdown', (pointer) => {
-                this.startCentrifugeAiming();
+            this.input.on('pointerdown', (pointer, currentlyOver) => {
+                // Only start aiming if we didn't click on an interactive object
+                if (currentlyOver.length === 0) {
+                    this.startCentrifugeAiming();
+                }
             }, this);
 
             this.input.on('pointerup', (pointer) => {
                 if (this.isAiming) {
                     this.throwBallInDirection();
+                }
+            }, this);
+
+            // Handle Drag Events
+            this.input.on('dragstart', (pointer, gameObject) => {
+                // If we were aiming (centrifuge), cancel it if we start dragging
+                if (this.isAiming) {
+                    this.isAiming = false;
+                    this.directionIndicator.visible = false;
+                    if (this.arrowShowTimeout) {
+                        clearTimeout(this.arrowShowTimeout);
+                        this.arrowShowTimeout = null;
+                    }
+                }
+
+                gameObject.setImmovable(false);
+                if (gameObject.body) {
+                    gameObject.body.allowGravity = false;
+                    gameObject.setVelocity(0, 0);
+                    gameObject.setAngularVelocity(0);
+                }
+                gameObject.setDepth(1000); // Bring to front while dragging
+            }, this);
+
+            this.input.on('drag', (pointer, gameObject, dragX, dragY) => {
+                // Smoothly move object to pointer while maintaining physics velocity for collisions
+                if (gameObject.body) {
+                    // Update velocity so it can "push" other objects it hits
+                    const velX = (dragX - gameObject.x) * (1000 / this.game.loop.delta);
+                    const velY = (dragY - gameObject.y) * (1000 / this.game.loop.delta);
+                    gameObject.setVelocity(velX, velY);
+                }
+                
+                gameObject.x = dragX;
+                gameObject.y = dragY;
+            }, this);
+
+            this.input.on('dragend', (pointer, gameObject) => {
+                gameObject.setDepth(gameObject === this.ball ? 50 : 10);
+                
+                if (gameObject.body) {
+                    // Re-enable gravity for ball only
+                    if (gameObject === this.ball) {
+                        gameObject.body.allowGravity = true;
+                    }
+                    
+                    // Keep a bit of the drag velocity for a "flick" effect
+                    const maxFlick = 800;
+                    const finalVelX = Phaser.Math.Clamp(gameObject.body.velocity.x, -maxFlick, maxFlick);
+                    const finalVelY = Phaser.Math.Clamp(gameObject.body.velocity.y, -maxFlick, maxFlick);
+                    gameObject.setVelocity(finalVelX, finalVelY);
+                    
+                    // Add rotation based on flick
+                    gameObject.setAngularVelocity(finalVelX * 0.75);
+                }
+                
+                // If ball was thrown/flicked, reset session counter
+                if (gameObject === this.ball && (Math.abs(gameObject.body.velocity.x) > 100 || Math.abs(gameObject.body.velocity.y) > 100)) {
+                    this.isBallMoving = true;
+                    this.sessionBounces = 0;
+                    this.updateCounters();
                 }
             }, this);
 
