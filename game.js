@@ -42,22 +42,23 @@ if (typeof Phaser === 'undefined') {
             this.throwSound = this.sound.add('throw', { volume: 0.225 }); // Lowered for longer sound
 
             // Load saved mute state or default to muted
+            // Initialize mute state from localStorage or default to muted
             try {
                 const savedMuteState = localStorage.getItem('babyBallGameMuted');
-                if (savedMuteState !== null) {
-                    this.sound.mute = savedMuteState === 'true';
+                // Only unmute if specifically saved as 'false' (unmuted), otherwise default to TRUE
+                if (savedMuteState === 'false') {
+                    this.sound.mute = false;
                 } else {
-                    // Default to muted if no saved preference
                     this.sound.mute = true;
                 }
             } catch (e) {
-                // Fallback if localStorage is unavailable
                 this.sound.mute = true;
             }
 
-            // Initialize UI to match current mute state
+            // Sync the button icon state with the sound manager state
             const muteButton = document.getElementById('mute-button');
             if (muteButton) {
+                // Ensure the 'muted' class matches our actual sound state
                 muteButton.classList.toggle('muted', this.sound.mute);
             }
 
