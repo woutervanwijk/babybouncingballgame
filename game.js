@@ -41,28 +41,90 @@ if (typeof Phaser === 'undefined') {
 
 
         create() {
-            // Initialize sound effects
-            this.throwSound = this.sound.add('throw', { volume: 0.25 });
-            this.ballSound = this.sound.add('ballSound', { volume: 0.2 });
-            this.sunSound = this.sound.add('sunSound', { volume: 0.25 });
-            this.cloudSound = this.sound.add('cloudSound', { volume: 0.25 });
+            // Initialize sound effects as null - they will be created after first user interaction
+            this.throwSound = null;
+            this.ballSound = null;
+            this.sunSound = null;
+            this.cloudSound = null;
+            
+            // Flag to track if audio context has been unlocked by user interaction
+            this.audioContextUnlocked = false;
+            
+            // Initialize sounds after first user interaction
+            const initializeSounds = () => {
+                if (this.audioContextUnlocked) return;
+                this.audioContextUnlocked = true;
+                
+                this.throwSound = this.sound.add('throw', { volume: 0.25 });
+                this.ballSound = this.sound.add('ballSound', { volume: 0.2 });
+                this.sunSound = this.sound.add('sunSound', { volume: 0.25 });
+                this.cloudSound = this.sound.add('cloudSound', { volume: 0.25 });
+                
+                // Ensure mute state is properly applied to the sound manager
+                // Use the initial mute state that was loaded during game creation
+                this.sound.mute = this.initialMuteState;
+                
+                // Apply the initial mute state to the sound manager
+                this.sound.mute = this.initialMuteState;
+                
+                // Sync button state after sounds are initialized
+                setTimeout(() => {
+                    const muteButton = document.getElementById('mute-button');
+                    if (muteButton) {
+                        if (this.sound.mute) {
+                            muteButton.classList.add('muted');
+                        } else {
+                            muteButton.classList.remove('muted');
+                        }
+                    }
+                }, 10);
+            };
+            
+            // Use direct DOM event listeners to capture first user interaction
+            const handleFirstInteraction = () => {
+                initializeSounds();
+                window.removeEventListener('pointerdown', handleFirstInteraction);
+                window.removeEventListener('touchstart', handleFirstInteraction);
+                window.removeEventListener('click', handleFirstInteraction);
+                window.removeEventListener('keydown', handleFirstInteraction);
+            };
+            
+            window.addEventListener('pointerdown', handleFirstInteraction);
+            window.addEventListener('touchstart', handleFirstInteraction);
+            window.addEventListener('click', handleFirstInteraction);
+            window.addEventListener('keydown', handleFirstInteraction);
 
-            // Default to unmuted at start
-            this.sound.mute = false;
-
-            // Sync the button icon state with the sound manager state
-            const muteButton = document.getElementById('mute-button');
-            if (muteButton) {
-                // Ensure the 'muted' class matches our actual sound state
-                muteButton.classList.toggle('muted', this.sound.mute);
+            // Load saved mute state or default to unmuted (false)
+            // We'll store this and apply it when sounds are initialized
+            this.initialMuteState = false;
+            try {
+                const storedValue = localStorage.getItem('babyBallGameMuted');
+                // Only use stored value if it's explicitly 'true' or 'false'
+                if (storedValue === 'true' || storedValue === 'false') {
+                    this.initialMuteState = (storedValue === 'true');
+                }
+                // Don't set this.sound.mute here - wait until sounds are initialized
+            } catch (e) {
+                // Handle Safari private mode or quota exceeded errors
+                console.warn('LocalStorage access failed, defaulting to unmuted');
+                this.initialMuteState = false;
             }
 
-            // Resume AudioContext on first interaction to avoid browser warnings
-            this.input.once('pointerdown', () => {
-                if (this.sound.context && this.sound.context.state === 'suspended') {
-                    this.sound.context.resume();
+            // Sync the button icon state with the loaded mute state
+            // Use setTimeout to ensure DOM is ready and button exists
+            setTimeout(() => {
+                const muteButton = document.getElementById('mute-button');
+                if (muteButton) {
+                    // Explicitly set the icon state based on the loaded setting
+                    if (this.initialMuteState) {
+                        muteButton.classList.add('muted');
+                    } else {
+                        muteButton.classList.remove('muted');
+                    }
                 }
-            });
+            }, 50);
+
+
 
             // Set up physics - only ball has gravity
             this.physics.world.gravity.y = 300;
@@ -98,7 +160,8 @@ if (typeof Phaser === 'undefined') {
                 if (body && body.gameObject === this.ball) {
                     // Only play if it hits with some force
                     if (Math.abs(body.velocity.x) > 30 || Math.abs(body.velocity.y) > 30) {
-                        if (this.ballSound) this.ballSound.play();
+                        const ballSound = this.getSound('ballSound');
+                        if (ballSound && this.canPlayAudio()) ballSound.play();
                     }
                 }
             });
@@ -335,7 +398,8 @@ if (typeof Phaser === 'undefined') {
 
                     // Play throw sound if it was a significant flick
                     if (Math.abs(finalVelX) > 200 || Math.abs(finalVelY) > 200) {
-                        if (this.throwSound) this.throwSound.play();
+                        const throwSound = this.getSound('throwSound');
+                        if (throwSound && this.canPlayAudio()) throwSound.play();
                     }
                 }
 
@@ -381,7 +445,8 @@ if (typeof Phaser === 'undefined') {
             }
 
             // Play throw sound
-            if (this.throwSound) this.throwSound.play();
+            const throwSound = this.getSound('throwSound');
+            if (throwSound && this.canPlayAudio()) throwSound.play();
 
             // Set natural rotation based on horizontal velocity
             this.ball.setAngularVelocity(this.ball.body.velocity.x * 0.75);
@@ -445,8 +510,10 @@ if (typeof Phaser === 'undefined') {
             const rotationSpeed = Phaser.Math.Between(-1, 1); // Random rotation speed
             cloud.setAngularVelocity(rotationSpeed * 100); // Degrees per second
 
-            if (this.ballSound) this.ballSound.play();
-            if (this.cloudSound) this.cloudSound.play();
+            const ballSound = this.getSound('ballSound');
+            const cloudSound = this.getSound('cloudSound');
+            if (ballSound && this.canPlayAudio()) ballSound.play();
+            if (cloudSound && this.canPlayAudio()) cloudSound.play();
             this.incrementBounceCounter(false);
         }
 
@@ -490,8 +557,10 @@ if (typeof Phaser === 'undefined') {
             const rotationSpeed = Phaser.Math.Between(-0.5, 0.5); // Slower rotation for sun
             sun.setAngularVelocity(rotationSpeed * 50); // Degrees per second
 
-            if (this.ballSound) this.ballSound.play();
-            if (this.sunSound) this.sunSound.play();
+            const ballSound = this.getSound('ballSound');
+            const sunSound = this.getSound('sunSound');
+            if (ballSound && this.canPlayAudio()) ballSound.play();
+            if (sunSound && this.canPlayAudio()) sunSound.play();
             this.incrementBounceCounter(false);
         }
 
@@ -538,7 +607,8 @@ if (typeof Phaser === 'undefined') {
             cloud1.setAngularVelocity(Phaser.Math.Between(-1, 1) * 50);
             cloud2.setAngularVelocity(Phaser.Math.Between(-1, 1) * 50);
 
-            if (this.cloudSound) this.cloudSound.play();
+            const cloudSound = this.getSound('cloudSound');
+            if (cloudSound && this.canPlayAudio()) cloudSound.play();
 
             // Increment bounce counter
             this.incrementBounceCounter(false);
@@ -586,8 +656,10 @@ if (typeof Phaser === 'undefined') {
             cloud.setAngularVelocity(Phaser.Math.Between(-1, 1) * 50);
             sun.setAngularVelocity(Phaser.Math.Between(-0.5, 0.5) * 50);
 
-            if (this.sunSound) this.sunSound.play();
-            if (this.cloudSound) this.cloudSound.play();
+            const sunSound = this.getSound('sunSound');
+            const cloudSound = this.getSound('cloudSound');
+            if (sunSound && this.canPlayAudio()) sunSound.play();
+            if (cloudSound && this.canPlayAudio()) cloudSound.play();
 
             // Increment bounce counter for cloud-sun collisions
             this.incrementBounceCounter(false);
@@ -838,7 +910,8 @@ if (typeof Phaser === 'undefined') {
                 if (this.sun.y - this.sun.displayHeight / 2 < 0) {
                     this.sun.y = this.sun.displayHeight / 2;
                     if (Math.abs(this.sun.body.velocity.y) > bounceThreshold) {
-                        this.playObjectCollisionSound('sun');
+                        const sunSound = this.getSound('sunSound');
+                        if (sunSound && this.canPlayAudio()) sunSound.play();
                     }
                     this.sun.setVelocity(this.sun.body.velocity.x * 0.9, Math.abs(this.sun.body.velocity.y) * 0.7);
                     this.sun.setAngularVelocity(this.sun.body.angularVelocity + Phaser.Math.Between(-10, 10));
@@ -848,13 +921,15 @@ if (typeof Phaser === 'undefined') {
                 if (this.sun.x - this.sun.displayWidth / 2 < 0) {
                     this.sun.x = this.sun.displayWidth / 2;
                     if (Math.abs(this.sun.body.velocity.x) > bounceThreshold) {
-                        if (this.sunSound) this.sunSound.play();
+                        const sunSound = this.getSound('sunSound');
+                        if (sunSound && this.canPlayAudio()) sunSound.play();
                     }
                     this.sun.setVelocity(Math.abs(this.sun.body.velocity.x) * 0.7, this.sun.body.velocity.y * 0.9);
                 } else if (this.sun.x + this.sun.displayWidth / 2 > this.gameWidth) {
                     this.sun.x = this.gameWidth - this.sun.displayWidth / 2;
                     if (Math.abs(this.sun.body.velocity.x) > bounceThreshold) {
-                        if (this.sunSound) this.sunSound.play();
+                        const sunSound = this.getSound('sunSound');
+                        if (sunSound && this.canPlayAudio()) sunSound.play();
                     }
                     this.sun.setVelocity(-Math.abs(this.sun.body.velocity.x) * 0.7, this.sun.body.velocity.y * 0.9);
                 }
@@ -863,7 +938,8 @@ if (typeof Phaser === 'undefined') {
                 if (this.sun.y > this.gameHeight - this.grassHeight - this.sun.displayHeight / 2 + 20) {
                     this.sun.y = this.gameHeight - this.grassHeight - this.sun.displayHeight / 2;
                     if (Math.abs(this.sun.body.velocity.y) > bounceThreshold) {
-                        if (this.sunSound) this.sunSound.play();
+                        const sunSound = this.getSound('sunSound');
+                        if (sunSound && this.canPlayAudio()) sunSound.play();
                     }
                     this.sun.setVelocity(this.sun.body.velocity.x * 0.9, -Math.abs(this.sun.body.velocity.y) * 0.7);
                 }
@@ -885,7 +961,8 @@ if (typeof Phaser === 'undefined') {
                     if (this.ball.body.velocity) {
                         // Play bounce sound if velocity is significant
                         if (Math.abs(this.ball.body.velocity.y) > 30) {
-                            if (this.ballSound) this.ballSound.play();
+                            const ballSound = this.getSound('ballSound');
+                            if (ballSound && this.canPlayAudio()) ballSound.play();
                         }
 
                         // Bounce the ball with reduced velocity
@@ -1050,7 +1127,8 @@ if (typeof Phaser === 'undefined') {
             this.ball.setVelocity(velX, velY);
 
             // Play throw sound
-            if (this.throwSound) this.throwSound.play();
+            const throwSound = this.getSound('throwSound');
+            if (throwSound && this.canPlayAudio()) throwSound.play();
 
             // Set natural rotation based on horizontal velocity
             this.ball.setAngularVelocity(velX * 0.75);
@@ -1077,14 +1155,26 @@ if (typeof Phaser === 'undefined') {
             }
         }
 
+        // Helper method to check if audio can be played
+        canPlayAudio() {
+            return this.audioContextUnlocked && !this.sound.mute;
+        }
+        
+        // Helper method to get sound instance (handles lazy initialization)
+        getSound(soundName) {
+            if (!this.audioContextUnlocked) return null;
+            return this[soundName];
+        }
+        
         incrementBounceCounter(playSound = true) {
             this.totalBounces++;
             this.sessionBounces++;
             this.updateCounters();
 
-            // Play generic bounce sound only if requested
-            if (playSound && this.ballSound) {
-                this.ballSound.play();
+            // Play generic bounce sound only if requested and audio is unlocked
+            if (playSound && this.canPlayAudio()) {
+                const ballSound = this.getSound('ballSound');
+                if (ballSound) ballSound.play();
             }
         }
 
@@ -1158,15 +1248,31 @@ if (typeof Phaser === 'undefined') {
 
         toggleMute() {
             // Toggle the master mute setting in Phaser
-            this.sound.mute = !this.sound.mute;
+            const newMuteState = !this.sound.mute;
+            this.sound.mute = newMuteState;
 
-            // Toggle the 'muted' class on the button itself
+            // Update the UI icon immediately using explicit add/remove
             const muteButton = document.getElementById('mute-button');
             if (muteButton) {
-                muteButton.classList.toggle('muted', this.sound.mute);
+                if (newMuteState) {
+                    muteButton.classList.add('muted');
+                } else {
+                    muteButton.classList.remove('muted');
+                }
             }
 
-            return this.sound.mute;
+            // Save preference with better error handling
+            try {
+                // Check if localStorage is available and working
+                if (typeof localStorage !== 'undefined') {
+                    localStorage.setItem('babyBallGameMuted', newMuteState);
+                }
+            } catch (e) {
+                // Handle Safari private mode or quota exceeded errors
+                console.warn('Failed to save mute state to localStorage:', e);
+            }
+
+            return newMuteState;
         }
     }
 

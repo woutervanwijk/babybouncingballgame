@@ -1,0 +1,73 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <title>Mute Button Test</title>
+    <style>
+        #mute-button {
+            width: 50px;
+            height: 50px;
+            background-image: url('svg/speaker.svg');
+            background-repeat: no-repeat;
+            background-position: center;
+            background-size: 28px;
+            border: none;
+            cursor: pointer;
+        }
+        
+        #mute-button.muted {
+            background-image: url('svg/mute.svg');
+        }
+        
+        #test-results {
+            margin-top: 20px;
+            padding: 10px;
+            border: 1px solid #ccc;
+            max-width: 500px;
+        }
+    </style>
+</head>
+<body>
+    <h1>Mute Button Icon Test</h1>
+    <button id="mute-button" class="side-button" title="Mute/Unmute"></button>
+    
+    <div id="test-results">
+        <h3>Test Results:</h3>
+        <p id="initial-state"></p>
+        <p id="after-toggle"></p>
+        <p id="localstorage-test"></p>
+    </div>
+    
+    <script>
+        // Test the mute button functionality
+        document.addEventListener('DOMContentLoaded', function() {
+            const muteButton = document.getElementById('mute-button');
+            const initialState = document.getElementById('initial-state');
+            const afterToggle = document.getElementById('after-toggle');
+            const localstorageTest = document.getElementById('localstorage-test');
+            
+            // Test 1: Initial state
+            initialState.textContent = 'Initial button state: ' + (muteButton.classList.contains('muted') ? 'MUTED' : 'UNMUTED');
+            
+            // Test 2: Toggle functionality
+            muteButton.addEventListener('click', function() {
+                const currentlyMuted = muteButton.classList.contains('muted');
+                if (currentlyMuted) {
+                    muteButton.classList.remove('muted');
+                } else {
+                    muteButton.classList.add('muted');
+                }
+                afterToggle.textContent = 'After toggle: ' + (muteButton.classList.contains('muted') ? 'MUTED' : 'UNMUTED');
+            });
+            
+            // Test 3: LocalStorage test
+            try {
+                localStorage.setItem('test', 'value');
+                localStorage.removeItem('test');
+                localstorageTest.textContent = 'LocalStorage: WORKING';
+            } catch (e) {
+                localstorageTest.textContent = 'LocalStorage: FAILED - ' + e.message;
+            }
+        });
+    </script>
+</body>
+</html>
