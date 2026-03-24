@@ -11,6 +11,14 @@ if (typeof Phaser === 'undefined') {
             this.grassHeight = 0; // Will be set in create() method
             this.totalBounces = 0;
             this.sessionBounces = 0;
+            // Object-specific bounce counters
+            this.ballBounces = 0;
+            this.sunBounces = 0;
+            this.cloudBounces = 0;
+            // Current streak counters (reset on throw)
+            this.ballStreak = 0;
+            this.sunStreak = 0;
+            this.cloudStreak = 0;
             this.isAiming = false;
             this.directionIndicator = null;
             this.aimAngle = 0;
@@ -415,6 +423,9 @@ if (typeof Phaser === 'undefined') {
                         const throwSound = this.getSound('throwSound');
                         if (throwSound && this.canPlayAudio()) throwSound.play();
                     }
+                    
+                    // Reset streak counters on any throw/flick
+                    this.resetStreakCounters();
                 }
 
                 // If ball was thrown/flicked, reset session counter
@@ -528,7 +539,7 @@ if (typeof Phaser === 'undefined') {
             const cloudSound = this.getSound('cloudSound');
             if (ballSound && this.canPlayAudio()) ballSound.play();
             if (cloudSound && this.canPlayAudio()) cloudSound.play();
-            this.incrementBounceCounter(false);
+            this.incrementBounceCounter('ball', false);
         }
 
         handleBallSunCollision(ball, sun) {
@@ -575,7 +586,7 @@ if (typeof Phaser === 'undefined') {
             const sunSound = this.getSound('sunSound');
             if (ballSound && this.canPlayAudio()) ballSound.play();
             if (sunSound && this.canPlayAudio()) sunSound.play();
-            this.incrementBounceCounter(false);
+            this.incrementBounceCounter('ball', false);
         }
 
         // Add soft collision handling for cloud-cloud and cloud-sun collisions
@@ -625,7 +636,7 @@ if (typeof Phaser === 'undefined') {
             if (cloudSound && this.canPlayAudio()) cloudSound.play();
 
             // Increment bounce counter
-            this.incrementBounceCounter(false);
+            this.incrementBounceCounter('cloud', false);
         }
 
         handleCloudSunCollision(cloud, sun) {
@@ -676,7 +687,7 @@ if (typeof Phaser === 'undefined') {
             if (cloudSound && this.canPlayAudio()) cloudSound.play();
 
             // Increment bounce counter for cloud-sun collisions
-            this.incrementBounceCounter(false);
+            this.incrementBounceCounter('sun', false);
         }
 
         handleResizeCollisions(oldWidth, oldHeight, newWidth, newHeight) {
@@ -1156,16 +1167,45 @@ if (typeof Phaser === 'undefined') {
             // Objects now slow down naturally via damping, which prevents accidental 'freezing'.
         }
 
+        resetStreakCounters() {
+            this.ballStreak = 0;
+            this.sunStreak = 0;
+            this.cloudStreak = 0;
+        }
+        
         updateCounters() {
-            // Update the counter displays if elements exist
-            const totalElement = document.getElementById('total-count');
-            const sessionElement = document.getElementById('session-count');
-
-            if (totalElement) {
-                totalElement.textContent = this.totalBounces;
-            }
-            if (sessionElement) {
-                sessionElement.textContent = this.sessionBounces;
+            // Create new counter table structure
+            const counterTable = document.getElementById('counter-table');
+            if (counterTable) {
+                // Clear existing content
+                counterTable.innerHTML = '';
+                
+                // Create table HTML with SVG icons and larger font
+                const tableHTML = `
+                    <table>
+                        <tr>
+                            <th style="text-align: left;">&nbsp;T</th>
+                            <td style="text-align: right;">${this.totalBounces}</td>
+                            <td style="text-align: right;">${this.ballStreak + this.sunStreak + this.cloudStreak}</td>
+                        </tr>
+                        <tr>
+                            <td style="text-align: left; vertical-align: middle;"><img src="svg/ball.svg" width="16" height="16" style="vertical-align: middle;"></td>
+                            <td style="text-align: right; vertical-align: middle;">${this.ballBounces}</td>
+                            <td style="text-align: right; vertical-align: middle;">${this.ballStreak}</td>
+                        </tr>
+                        <tr>
+                            <td style="text-align: left; vertical-align: middle;"><img src="svg/sun.svg" width="20" height="20" style="vertical-align: middle;"></td>
+                            <td style="text-align: right; vertical-align: middle;">${this.sunBounces}</td>
+                            <td style="text-align: right; vertical-align: middle;">${this.sunStreak}</td>
+                        </tr>
+                        <tr>
+                            <td style="text-align: left; vertical-align: middle;"><img src="svg/cloud.svg" width="20" height="20" style="vertical-align: middle;"></td>
+                            <td style="text-align: right; vertical-align: middle;">${this.cloudBounces}</td>
+                            <td style="text-align: right; vertical-align: middle;">${this.cloudStreak}</td>
+                        </tr>
+                    </table>
+                `;
+                counterTable.innerHTML = tableHTML;
             }
         }
 
@@ -1180,9 +1220,29 @@ if (typeof Phaser === 'undefined') {
             return this[soundName];
         }
         
-        incrementBounceCounter(playSound = true) {
+        incrementBounceCounter(objectType = 'ball', playSound = true) {
             this.totalBounces++;
             this.sessionBounces++;
+            
+            // Increment object-specific counter
+            switch(objectType) {
+                case 'ball':
+                    this.ballBounces++;
+                    this.ballStreak++;
+                    break;
+                case 'sun':
+                    this.sunBounces++;
+                    this.sunStreak++;
+                    break;
+                case 'cloud':
+                    this.cloudBounces++;
+                    this.cloudStreak++;
+                    break;
+                default:
+                    this.ballBounces++;
+                    this.ballStreak++;
+            }
+            
             this.updateCounters();
 
             // Play generic bounce sound only if requested and audio is unlocked

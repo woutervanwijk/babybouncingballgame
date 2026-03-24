@@ -74,6 +74,67 @@ body {
     background-image: url('svg/mute.svg');
 }
 
+/* Counter table styles */
+#counter-table {
+    font-family: Arial, sans-serif;
+    font-size: 14px; /* 20% larger than 12px */
+    position: absolute;
+    top: 10px;
+    right: 10px;
+    background-color: rgba(255, 255, 255, 0.8);
+    padding: 8px;
+    border-radius: 8px;
+    box-shadow: 0 2px 4px rgba(0,0,0,0.2);
+    z-index: 100;
+}
+
+#counter-table table {
+    border-collapse: collapse;
+    width: 100%;
+}
+
+#counter-table {
+    width: auto;
+}
+
+#counter-table th,
+#counter-table td {
+    padding: 2px 6px;
+}
+
+#counter-table th:first-child,
+#counter-table td:first-child {
+    width: 24px; /* Fixed width for icon column */
+    min-width: 24px;
+    max-width: 24px;
+}
+
+#counter-table th {
+    text-align: left;
+    font-weight: bold;
+}
+
+#counter-table th:nth-child(2) {
+    text-align: right;
+    width: 40px; /* Fixed width for total number column */
+}
+
+#counter-table th:last-child {
+    text-align: right;
+    /* width: 30px; Fixed width for streak number column */
+    padding-left: 8px;
+}
+
+#counter-table img {
+    vertical-align: middle;
+    margin-right: 0;
+    display: inline;
+}
+
+#counter-table td {
+    vertical-align: middle;
+}
+
 .side-button:focus {
     outline: none;
 }
