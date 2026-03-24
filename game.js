@@ -128,7 +128,7 @@ if (typeof Phaser === 'undefined') {
 
             // Create clouds (NO GRAVITY - only move when hit)
             const cloudTextures = ["cloud"];
-            const cloudCount = this.screenMode === "largeScreen" ? 8 : (this.screenMode === "mediumScreen" ? 6 : 4);
+            const cloudCount = this.screenMode === "largeScreen" ? 9 : (this.screenMode === "mediumScreen" ? 6 : 3);
             this.clouds = [];
             for (let i = 0; i < cloudCount; i++) {
                 const texture = cloudTextures[i % cloudTextures.length];
@@ -195,23 +195,23 @@ if (typeof Phaser === 'undefined') {
             this.ball.setInteractive({
                 hitArea: new Phaser.Geom.Circle(this.ball.width / 2, this.ball.height / 2, this.ball.width / 2),
                 hitAreaCallback: Phaser.Geom.Circle.Contains,
-                draggable: true, 
+                draggable: true,
                 useHandCursor: true
             });
-            
+
             this.sun.setInteractive({
                 hitArea: new Phaser.Geom.Circle(this.sun.width / 2, this.sun.height / 2, this.sun.width / 2),
                 hitAreaCallback: Phaser.Geom.Circle.Contains,
-                draggable: true, 
+                draggable: true,
                 useHandCursor: true
             });
-            
+
             this.clouds.forEach(cloud => {
                 // The cloud's grab radius is specifically half its full width as requested (radius = width / 4)
                 cloud.setInteractive({
                     hitArea: new Phaser.Geom.Circle(cloud.width / 2, cloud.height / 2, cloud.width / 4),
                     hitAreaCallback: Phaser.Geom.Circle.Contains,
-                    draggable: true, 
+                    draggable: true,
                     useHandCursor: true
                 });
             });
@@ -226,12 +226,12 @@ if (typeof Phaser === 'undefined') {
                 if (currentlyOver.length > 0 || manualHitTest.length > 0) return;
 
                 // 2. Cooldown check: don't start if we just finished dragging (prevents double-tap issues)
-                if (this.isDragging || Date.now() - this.lastDragEndTime < 500) return;
+                if (this.isDragging || Date.now() - this.lastDragEndTime < 250) return;
 
                 // 3. Safety zone check: don't start if we clicked very near the ball or other objects
                 // This prevents "near misses" from turning into accidental centrifuge throws
                 const objects = [this.ball, this.sun, ...this.clouds];
-                const interactionBuffer = 120; // Radius around object centers to ignore centrifuge starts
+                const interactionBuffer = 40; // Reduced from 120 to allow throwing closer to objects
 
                 const isNearRelevantObject = objects.some(obj => {
                     if (!obj || !obj.active) return false;
@@ -704,7 +704,7 @@ if (typeof Phaser === 'undefined') {
 
         update() {
 
-            
+
             // Spin the arrow continuously when aiming (centrifuge effect)
             if (this.isAiming) {
                 // Add rotation speed in the random direction
@@ -839,7 +839,7 @@ if (typeof Phaser === 'undefined') {
                         if (Math.abs(this.ball.body.velocity.y) > 30) {
                             if (this.bounceSound) this.bounceSound.play();
                         }
-                        
+
                         // Bounce the ball with reduced velocity
                         const bounceVelocityY = -Math.abs(this.ball.body.velocity.y) * 0.6;
                         const bounceVelocityX = this.ball.body.velocity.x * 0.9;
@@ -869,8 +869,8 @@ if (typeof Phaser === 'undefined') {
 
         startCentrifugeAiming() {
             // Never start aiming if we are in the middle of a drag or just finished one
-            if (this.isDragging || Date.now() - this.lastDragEndTime < 500) return;
-            
+            if (this.isDragging || Date.now() - this.lastDragEndTime < 250) return;
+
             // Re-enable gravity for the ball if we start aiming (it might have been disabled while stopped)
             if (this.ball && this.ball.body) {
                 this.ball.body.allowGravity = true;
@@ -1120,7 +1120,7 @@ if (typeof Phaser === 'undefined') {
             // Save preference
             try {
                 localStorage.setItem('babyBallGameMuted', this.sound.mute);
-            } catch (e) { 
+            } catch (e) {
                 // Ignore storage errors
             }
 
@@ -1138,7 +1138,7 @@ if (typeof Phaser === 'undefined') {
                 height: container.clientHeight
             };
         }
-        
+
         // Fallback
         return { width: window.innerWidth, height: window.innerHeight };
     };
