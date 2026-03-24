@@ -55,29 +55,45 @@ if (typeof Phaser === 'undefined') {
                 if (this.audioContextUnlocked) return;
                 this.audioContextUnlocked = true;
                 
+                // Set mute state BEFORE creating sound objects
+                // This ensures the mute state is applied to all new sounds
+                this.sound.mute = this.initialMuteState;
+                
+                // Now create the sound objects with the correct mute state
                 this.throwSound = this.sound.add('throw', { volume: 0.25 });
                 this.ballSound = this.sound.add('ballSound', { volume: 0.2 });
                 this.sunSound = this.sound.add('sunSound', { volume: 0.25 });
                 this.cloudSound = this.sound.add('cloudSound', { volume: 0.25 });
                 
-                // Ensure mute state is properly applied to the sound manager
-                // Use the initial mute state that was loaded during game creation
-                this.sound.mute = this.initialMuteState;
-                
-                // Apply the initial mute state to the sound manager
-                this.sound.mute = this.initialMuteState;
-                
-                // Sync button state after sounds are initialized
+                // Critical: Force button state to match the saved mute state
+                // Use a longer timeout to ensure this happens after all initialization
                 setTimeout(() => {
                     const muteButton = document.getElementById('mute-button');
                     if (muteButton) {
-                        if (this.sound.mute) {
+                        // Debug: log what we're doing
+                        console.log('Syncing button icon. initialMuteState:', this.initialMuteState, 'sound.mute:', this.sound.mute);
+                        
+                        // Always use the initialMuteState for the button during initialization
+                        // This prevents any temporary state changes from affecting the UI
+                        if (this.initialMuteState) {
                             muteButton.classList.add('muted');
                         } else {
                             muteButton.classList.remove('muted');
                         }
+                        
+                        // Double-check after a brief delay
+                        setTimeout(() => {
+                            if (muteButton.classList.contains('muted') !== this.initialMuteState) {
+                                console.log('Fixing button state mismatch');
+                                if (this.initialMuteState) {
+                                    muteButton.classList.add('muted');
+                                } else {
+                                    muteButton.classList.remove('muted');
+                                }
+                            }
+                        }, 50);
                     }
-                }, 10);
+                }, 100); // Increased timeout to ensure it runs after everything else
             };
             
             // Use direct DOM event listeners to capture first user interaction
@@ -115,6 +131,9 @@ if (typeof Phaser === 'undefined') {
             setTimeout(() => {
                 const muteButton = document.getElementById('mute-button');
                 if (muteButton) {
+                    // Debug: log initial button setup
+                    console.log('Initial button setup. initialMuteState:', this.initialMuteState);
+                    
                     // Explicitly set the icon state based on the loaded setting
                     if (this.initialMuteState) {
                         muteButton.classList.add('muted');
@@ -1247,6 +1266,21 @@ if (typeof Phaser === 'undefined') {
         }
 
         toggleMute() {
+            // Ensure sound system is initialized before toggling
+            if (!this.audioContextUnlocked) {
+                // If sounds aren't initialized yet, just update the UI and return
+                // The actual mute state will be set when sounds are initialized
+                const muteButton = document.getElementById('mute-button');
+                if (muteButton) {
+                    if (muteButton.classList.contains('muted')) {
+                        muteButton.classList.remove('muted');
+                    } else {
+                        muteButton.classList.add('muted');
+                    }
+                }
+                return !muteButton.classList.contains('muted');
+            }
+
             // Toggle the master mute setting in Phaser
             const newMuteState = !this.sound.mute;
             this.sound.mute = newMuteState;
