@@ -70,9 +70,6 @@ if (typeof Phaser === 'undefined') {
                 setTimeout(() => {
                     const muteButton = document.getElementById('mute-button');
                     if (muteButton) {
-                        // Debug: log what we're doing
-                        console.log('Syncing button icon. initialMuteState:', this.initialMuteState, 'sound.mute:', this.sound.mute);
-                        
                         // Always use the initialMuteState for the button during initialization
                         // This prevents any temporary state changes from affecting the UI
                         if (this.initialMuteState) {
@@ -131,8 +128,6 @@ if (typeof Phaser === 'undefined') {
             setTimeout(() => {
                 const muteButton = document.getElementById('mute-button');
                 if (muteButton) {
-                    // Debug: log initial button setup
-                    console.log('Initial button setup. initialMuteState:', this.initialMuteState);
                     
                     // Explicitly set the icon state based on the loaded setting
                     if (this.initialMuteState) {
@@ -166,7 +161,7 @@ if (typeof Phaser === 'undefined') {
 
             // Create ball (only object with gravity) - position above grass
             this.ball = this.physics.add.sprite(this.gameWidth / 2, this.gameHeight - this.grassHeight - 50, 'ball');
-            this.ball.setDisplaySize(90, 90);
+            this.ball.setDisplaySize(72, 72);
             this.ball.setBounce(0.6);
             this.ball.setCollideWorldBounds(true);
             this.ball.body.onWorldBounds = true;
