@@ -390,6 +390,7 @@ if (typeof Phaser === 'undefined') {
             }, this);
 
             this.input.on('dragend', (pointer, gameObject) => {
+                console.log('Drag end detected on:', gameObject === this.ball ? 'ball' : gameObject === this.sun ? 'sun' : 'cloud');
                 this.isDragging = false;
                 this.lastDragEndTime = Date.now();
 
@@ -1150,6 +1151,9 @@ if (typeof Phaser === 'undefined') {
 
             // Apply velocity to ball
             this.ball.setVelocity(velX, velY);
+
+            // Reset streak counters on button throw
+            this.resetStreakCounters();
 
             // Play throw sound
             const throwSound = this.getSound('throwSound');
