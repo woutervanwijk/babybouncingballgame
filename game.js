@@ -130,9 +130,9 @@ if (typeof Phaser === 'undefined') {
             // Determine screen mode based on width
             if (this.gameWidth >= 1100 || this.gameHeight >= 1100) {
                 this.screenMode = "xlargeScreen";
-            } else if (this.gameWidth >= 800 || this.gameHeight >= 800) {
+            } else if (this.gameWidth >= 900 || this.gameHeight >= 900) {
                 this.screenMode = "largeScreen";
-            } else if (this.gameWidth >= 600 || this.gameHeight >= 600) {
+            } else if (this.gameWidth >= 700 || this.gameHeight >= 700) {
                 this.screenMode = "mediumScreen";
             } else {
                 this.screenMode = "smallScreen";
@@ -624,9 +624,9 @@ if (typeof Phaser === 'undefined') {
             const grassBottom = newHeight - this.grassHeight;
 
             // Check ball collision with new grass position
-            if (this.ball && this.ball.y + this.ball.height / 2 > grassBottom) {
+            if (this.ball && this.ball.y + this.ball.displayHeight / 2 > grassBottom) {
                 // Ball is below grass - make it bounce
-                this.ball.y = grassBottom - this.ball.height / 2;
+                this.ball.y = grassBottom - this.ball.displayHeight / 2;
                 if (this.ball.body) {
                     const bounceVelocityY = -Math.abs(this.ball.body.velocity.y || 200) * 0.7;
                     const bounceVelocityX = (this.ball.body.velocity.x || 0) * 0.9;
@@ -637,8 +637,8 @@ if (typeof Phaser === 'undefined') {
             // Check clouds collision with new boundaries
             this.clouds.forEach(cloud => {
                 // Check bottom collision with grass
-                if (cloud.y + cloud.height / 2 > grassBottom) {
-                    cloud.y = grassBottom - cloud.height / 2;
+                if (cloud.y + cloud.displayHeight / 2 > grassBottom) {
+                    cloud.y = grassBottom - cloud.displayHeight / 2;
                     if (cloud.body && cloud.body.velocity) {
                         const bounceVelocityY = -Math.abs(cloud.body.velocity.y) * 0.7;
                         const bounceVelocityX = cloud.body.velocity.x * 0.9;
@@ -649,8 +649,8 @@ if (typeof Phaser === 'undefined') {
                 }
 
                 // Check top collision with screen top
-                if (cloud.y - cloud.height / 2 < 0) {
-                    cloud.y = cloud.height / 2;
+                if (cloud.y - cloud.displayHeight / 2 < 0) {
+                    cloud.y = cloud.displayHeight / 2;
                     if (cloud.body && cloud.body.velocity) {
                         const bounceVelocityY = Math.abs(cloud.body.velocity.y) * 0.7;
                         const bounceVelocityX = cloud.body.velocity.x * 0.9;
@@ -661,15 +661,15 @@ if (typeof Phaser === 'undefined') {
                 }
 
                 // Check side collisions
-                if (cloud.x - cloud.width / 2 < 0) {
-                    cloud.x = cloud.width / 2;
+                if (cloud.x - cloud.displayWidth / 2 < 0) {
+                    cloud.x = cloud.displayWidth / 2;
                     if (cloud.body && cloud.body.velocity) {
                         const bounceVelocityX = Math.abs(cloud.body.velocity.x) * 0.7;
                         const bounceVelocityY = cloud.body.velocity.y * 0.9;
                         cloud.setVelocity(bounceVelocityX, bounceVelocityY);
                     }
-                } else if (cloud.x + cloud.width / 2 > newWidth) {
-                    cloud.x = newWidth - cloud.width / 2;
+                } else if (cloud.x + cloud.displayWidth / 2 > newWidth) {
+                    cloud.x = newWidth - cloud.displayWidth / 2;
                     if (cloud.body && cloud.body.velocity) {
                         const bounceVelocityX = -Math.abs(cloud.body.velocity.x) * 0.7;
                         const bounceVelocityY = cloud.body.velocity.y * 0.9;
@@ -681,8 +681,8 @@ if (typeof Phaser === 'undefined') {
             // Check sun collision with new boundaries
             if (this.sun) {
                 // Check bottom collision with grass
-                if (this.sun.y + this.sun.height / 2 > grassBottom) {
-                    this.sun.y = grassBottom - this.sun.height / 2;
+                if (this.sun.y + this.sun.displayHeight / 2 > grassBottom) {
+                    this.sun.y = grassBottom - this.sun.displayHeight / 2;
                     if (this.sun.body && this.sun.body.velocity) {
                         const bounceVelocityY = -Math.abs(this.sun.body.velocity.y) * 0.7;
                         const bounceVelocityX = this.sun.body.velocity.x * 0.9;
@@ -849,7 +849,7 @@ if (typeof Phaser === 'undefined') {
             // Sun boundary collisions (top, sides, grass)
             if (this.sun && this.sun.body && this.sun.body.velocity) {
                 const bounceThreshold = 30;
-                
+
                 // Top boundary
                 if (this.sun.y - this.sun.displayHeight / 2 < 0) {
                     this.sun.y = this.sun.displayHeight / 2;
@@ -859,7 +859,7 @@ if (typeof Phaser === 'undefined') {
                     this.sun.setVelocity(this.sun.body.velocity.x * 0.9, Math.abs(this.sun.body.velocity.y) * 0.7);
                     this.sun.setAngularVelocity(this.sun.body.angularVelocity + Phaser.Math.Between(-10, 10));
                 }
-                
+
                 // Side boundaries
                 if (this.sun.x - this.sun.displayWidth / 2 < 0) {
                     this.sun.x = this.sun.displayWidth / 2;
@@ -874,7 +874,7 @@ if (typeof Phaser === 'undefined') {
                     }
                     this.sun.setVelocity(-Math.abs(this.sun.body.velocity.x) * 0.7, this.sun.body.velocity.y * 0.9);
                 }
-                
+
                 // Grass/Ground bounce
                 if (this.sun.y > this.gameHeight - this.grassHeight - this.sun.displayHeight / 2 + 20) {
                     this.sun.y = this.gameHeight - this.grassHeight - this.sun.displayHeight / 2;
