@@ -44,26 +44,13 @@ if (typeof Phaser === 'undefined') {
 
         create() {
             // Initialize sound effects
-            this.throwSound = this.sound.add('throw', { volume: 0.225 }); // Lowered for longer sound
+            this.throwSound = this.sound.add('throw', { volume: 0.25 });
+            this.ballSound = this.sound.add('ballSound', { volume: 0.2 });
+            this.sunSound = this.sound.add('sunSound', { volume: 0.25 });
+            this.cloudSound = this.sound.add('cloudSound', { volume: 0.25 });
 
-            // Object specific sounds
-            this.ballSound = this.sound.add('ballSound', { volume: 0.3 });
-            this.sunSound = this.sound.add('sunSound', { volume: 0.5 });
-            this.cloudSound = this.sound.add('cloudSound', { volume: 0.5 });
-
-            // Load saved mute state or default to muted
-            // Initialize mute state from localStorage or default to muted
-            try {
-                const savedMuteState = localStorage.getItem('babyBallGameMuted');
-                // Only unmute if specifically saved as 'false' (unmuted), otherwise default to TRUE
-                if (savedMuteState === 'false') {
-                    this.sound.mute = false;
-                } else {
-                    this.sound.mute = true;
-                }
-            } catch (e) {
-                this.sound.mute = true;
-            }
+            // Always default to muted at start
+            this.sound.mute = true;
 
             // Sync the button icon state with the sound manager state
             const muteButton = document.getElementById('mute-button');
@@ -1190,13 +1177,6 @@ if (typeof Phaser === 'undefined') {
             const muteButton = document.getElementById('mute-button');
             if (muteButton) {
                 muteButton.classList.toggle('muted', this.sound.mute);
-            }
-
-            // Save preference
-            try {
-                localStorage.setItem('babyBallGameMuted', this.sound.mute);
-            } catch (e) {
-                // Ignore storage errors
             }
 
             return this.sound.mute;
