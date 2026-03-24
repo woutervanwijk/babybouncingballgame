@@ -54,25 +54,25 @@ if (typeof Phaser === 'undefined') {
             this.ballSound = null;
             this.sunSound = null;
             this.cloudSound = null;
-            
+
             // Flag to track if audio context has been unlocked by user interaction
             this.audioContextUnlocked = false;
-            
+
             // Initialize sounds after first user interaction
             const initializeSounds = () => {
                 if (this.audioContextUnlocked) return;
                 this.audioContextUnlocked = true;
-                
+
                 // Set mute state BEFORE creating sound objects
                 // This ensures the mute state is applied to all new sounds
                 this.sound.mute = this.initialMuteState;
-                
+
                 // Now create the sound objects with the correct mute state
                 this.throwSound = this.sound.add('throw', { volume: 0.25 });
                 this.ballSound = this.sound.add('ballSound', { volume: 0.2 });
                 this.sunSound = this.sound.add('sunSound', { volume: 0.25 });
                 this.cloudSound = this.sound.add('cloudSound', { volume: 0.25 });
-                
+
                 // Critical: Force button state to match the saved mute state
                 // Use a longer timeout to ensure this happens after all initialization
                 setTimeout(() => {
@@ -85,7 +85,7 @@ if (typeof Phaser === 'undefined') {
                         } else {
                             muteButton.classList.remove('muted');
                         }
-                        
+
                         // Double-check after a brief delay
                         setTimeout(() => {
                             if (muteButton.classList.contains('muted') !== this.initialMuteState) {
@@ -100,7 +100,7 @@ if (typeof Phaser === 'undefined') {
                     }
                 }, 100); // Increased timeout to ensure it runs after everything else
             };
-            
+
             // Use direct DOM event listeners to capture first user interaction
             const handleFirstInteraction = () => {
                 initializeSounds();
@@ -109,7 +109,7 @@ if (typeof Phaser === 'undefined') {
                 window.removeEventListener('click', handleFirstInteraction);
                 window.removeEventListener('keydown', handleFirstInteraction);
             };
-            
+
             window.addEventListener('pointerdown', handleFirstInteraction);
             window.addEventListener('touchstart', handleFirstInteraction);
             window.addEventListener('click', handleFirstInteraction);
@@ -136,7 +136,7 @@ if (typeof Phaser === 'undefined') {
             setTimeout(() => {
                 const muteButton = document.getElementById('mute-button');
                 if (muteButton) {
-                    
+
                     // Explicitly set the icon state based on the loaded setting
                     if (this.initialMuteState) {
                         muteButton.classList.add('muted');
@@ -428,7 +428,7 @@ if (typeof Phaser === 'undefined') {
                         const throwSound = this.getSound('throwSound');
                         if (throwSound && this.canPlayAudio()) throwSound.play();
                     }
-                    
+
                     // Reset streak counters on any throw/flick
                     this.resetStreakCounters();
                 }
@@ -1180,24 +1180,24 @@ if (typeof Phaser === 'undefined') {
             this.sunStreak = 0;
             this.cloudStreak = 0;
         }
-        
+
         updateCounters() {
             // Create new counter table structure
             const counterTable = document.getElementById('counter-table');
             if (counterTable) {
                 // Clear existing content
                 counterTable.innerHTML = '';
-                
+
                 // Create table HTML with SVG icons and larger font
                 const tableHTML = `
                     <table>
                         <tr>
-                            <th style="text-align: left;">&nbsp;T</th>
+                            <th style="text-align: left;"><span style="margin-left: 6px">T</span></th>
                             <td style="text-align: right;">${this.totalBounces}</td>
                             <td style="text-align: right;">${this.ballStreak + this.sunStreak + this.cloudStreak}</td>
                         </tr>
                         <tr>
-                            <td style="text-align: left; vertical-align: middle;"><img src="svg/ball.svg" width="16" height="16" style="vertical-align: middle;"></td>
+                            <td style="text-align: left; vertical-align: middle;"><img src="svg/ball.svg" width="16" height="16" style="vertical-align: middle; margin-left: 2px;"></td>
                             <td style="text-align: right; vertical-align: middle;">${this.ballBounces}</td>
                             <td style="text-align: right; vertical-align: middle;">${this.ballStreak}</td>
                         </tr>
@@ -1221,19 +1221,19 @@ if (typeof Phaser === 'undefined') {
         canPlayAudio() {
             return this.audioContextUnlocked && !this.sound.mute;
         }
-        
+
         // Helper method to get sound instance (handles lazy initialization)
         getSound(soundName) {
             if (!this.audioContextUnlocked) return null;
             return this[soundName];
         }
-        
+
         incrementBounceCounter(objectType = 'ball', playSound = true) {
             this.totalBounces++;
             this.sessionBounces++;
-            
+
             // Increment object-specific counter
-            switch(objectType) {
+            switch (objectType) {
                 case 'ball':
                     this.ballBounces++;
                     this.ballStreak++;
@@ -1250,7 +1250,7 @@ if (typeof Phaser === 'undefined') {
                     this.ballBounces++;
                     this.ballStreak++;
             }
-            
+
             this.updateCounters();
 
             // Play generic bounce sound only if requested and audio is unlocked
