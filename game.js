@@ -47,8 +47,8 @@ if (typeof Phaser === 'undefined') {
             this.sunSound = this.sound.add('sunSound', { volume: 0.25 });
             this.cloudSound = this.sound.add('cloudSound', { volume: 0.25 });
 
-            // Always default to muted at start
-            this.sound.mute = true;
+            // Default to unmuted at start
+            this.sound.mute = false;
 
             // Sync the button icon state with the sound manager state
             const muteButton = document.getElementById('mute-button');
@@ -56,6 +56,13 @@ if (typeof Phaser === 'undefined') {
                 // Ensure the 'muted' class matches our actual sound state
                 muteButton.classList.toggle('muted', this.sound.mute);
             }
+
+            // Resume AudioContext on first interaction to avoid browser warnings
+            this.input.once('pointerdown', () => {
+                if (this.sound.context && this.sound.context.state === 'suspended') {
+                    this.sound.context.resume();
+                }
+            });
 
             // Set up physics - only ball has gravity
             this.physics.world.gravity.y = 300;
