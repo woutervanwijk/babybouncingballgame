@@ -20,6 +20,10 @@ if (typeof Phaser === 'undefined') {
             this.arrowShowTimeout = null; // Timeout for showing arrow
             this.isDragging = false; // Track if an object is being dragged
             this.lastDragEndTime = 0; // Timestamp of last drag end
+
+            // Sound priority system
+            this.collisionSoundThisFrame = null;
+            this.priorityThisFrame = 999;
         }
 
         preload() {
@@ -31,15 +35,21 @@ if (typeof Phaser === 'undefined') {
             this.load.svg('ball', 'svg/ball.svg', { width: 200, height: 200 });
 
             // Load sound effects
-            this.load.audio('bounce', 'assets/audio/bounce.mp3');
             this.load.audio('throw', 'assets/audio/throw.mp3');
+            this.load.audio('ballSound', 'assets/audio/ball.mp3');
+            this.load.audio('sunSound', 'assets/audio/sun.mp3');
+            this.load.audio('cloudSound', 'assets/audio/cloud.mp3');
         }
 
 
         create() {
             // Initialize sound effects
-            this.bounceSound = this.sound.add('bounce', { volume: 0.45 });
             this.throwSound = this.sound.add('throw', { volume: 0.225 }); // Lowered for longer sound
+
+            // Object specific sounds
+            this.ballSound = this.sound.add('ballSound', { volume: 0.3 });
+            this.sunSound = this.sound.add('sunSound', { volume: 0.5 });
+            this.cloudSound = this.sound.add('cloudSound', { volume: 0.5 });
 
             // Load saved mute state or default to muted
             // Initialize mute state from localStorage or default to muted
@@ -96,7 +106,7 @@ if (typeof Phaser === 'undefined') {
                 if (body && body.gameObject === this.ball) {
                     // Only play if it hits with some force
                     if (Math.abs(body.velocity.x) > 30 || Math.abs(body.velocity.y) > 30) {
-                        if (this.bounceSound) this.bounceSound.play();
+                        if (this.ballSound) this.ballSound.play();
                     }
                 }
             });
@@ -118,9 +128,11 @@ if (typeof Phaser === 'undefined') {
             this.sun.setDepth(10); // Sun stays in back
 
             // Determine screen mode based on width
-            if (this.gameWidth >= 1200 || this.gameHeight >= 1200) {
-                this.screenMode = "largeScreen";
+            if (this.gameWidth >= 1100 || this.gameHeight >= 1100) {
+                this.screenMode = "xlargeScreen";
             } else if (this.gameWidth >= 800 || this.gameHeight >= 800) {
+                this.screenMode = "largeScreen";
+            } else if (this.gameWidth >= 600 || this.gameHeight >= 600) {
                 this.screenMode = "mediumScreen";
             } else {
                 this.screenMode = "smallScreen";
@@ -128,7 +140,7 @@ if (typeof Phaser === 'undefined') {
 
             // Create clouds (NO GRAVITY - only move when hit)
             const cloudTextures = ["cloud"];
-            const cloudCount = this.screenMode === "largeScreen" ? 9 : (this.screenMode === "mediumScreen" ? 6 : 3);
+            const cloudCount = this.screenMode === "xlargeScreen" ? 9 : (this.screenMode === "largeScreen" ? 7 : (this.screenMode === "mediumScreen" ? 5 : 3));
             this.clouds = [];
             for (let i = 0; i < cloudCount; i++) {
                 const texture = cloudTextures[i % cloudTextures.length];
@@ -441,8 +453,8 @@ if (typeof Phaser === 'undefined') {
             const rotationSpeed = Phaser.Math.Between(-1, 1); // Random rotation speed
             cloud.setAngularVelocity(rotationSpeed * 100); // Degrees per second
 
-            // Increment bounce counter
-            this.incrementBounceCounter();
+            this.playObjectCollisionSound('ball');
+            this.incrementBounceCounter(false);
         }
 
         handleBallSunCollision(ball, sun) {
@@ -485,8 +497,9 @@ if (typeof Phaser === 'undefined') {
             const rotationSpeed = Phaser.Math.Between(-0.5, 0.5); // Slower rotation for sun
             sun.setAngularVelocity(rotationSpeed * 50); // Degrees per second
 
-            // Increment bounce counter
-            this.incrementBounceCounter();
+            // Use sun sound for ball-sun collision as requested
+            this.playObjectCollisionSound('sun');
+            this.incrementBounceCounter(false);
         }
 
         // Add soft collision handling for cloud-cloud and cloud-sun collisions
@@ -532,8 +545,11 @@ if (typeof Phaser === 'undefined') {
             cloud1.setAngularVelocity(Phaser.Math.Between(-1, 1) * 50);
             cloud2.setAngularVelocity(Phaser.Math.Between(-1, 1) * 50);
 
-            // Increment bounce counter for cloud-cloud collisions
-            this.incrementBounceCounter();
+            // cloud hits cloud: triggers cloud sound (priority 3)
+            this.playObjectCollisionSound('cloud');
+
+            // Increment bounce counter
+            this.incrementBounceCounter(false);
         }
 
         handleCloudSunCollision(cloud, sun) {
@@ -578,11 +594,17 @@ if (typeof Phaser === 'undefined') {
             cloud.setAngularVelocity(Phaser.Math.Between(-1, 1) * 50);
             sun.setAngularVelocity(Phaser.Math.Between(-0.5, 0.5) * 50);
 
+            // cloud hits sun: triggers sun sound (priority 2)
+            this.playObjectCollisionSound('sun');
+
             // Increment bounce counter for cloud-sun collisions
-            this.incrementBounceCounter();
+            this.incrementBounceCounter(false);
         }
 
         handleResizeCollisions(oldWidth, oldHeight, newWidth, newHeight) {
+            // Safety: bail if objects aren't initialized yet (prevents crash on early resize)
+            if (!this.ball || !this.clouds || !this.sun) return;
+
             // Update grass height for new screen size
             this.grassHeight = Math.min(newHeight * 0.2, 150);
             const playAreaHeight = newHeight - this.grassHeight;
@@ -720,6 +742,16 @@ if (typeof Phaser === 'undefined') {
                 this.updateDirectionIndicator();
             }
 
+            // Execute the highest priority collision sound for this frame
+            if (this.collisionSoundThisFrame) {
+                const sound = this[this.collisionSoundThisFrame + 'Sound'];
+                if (sound) sound.play();
+
+                // Reset for next frame
+                this.collisionSoundThisFrame = null;
+                this.priorityThisFrame = 999;
+            }
+
             // Check if ball has stopped moving
             if (this.isBallMoving &&
                 Math.abs(this.ball.body.velocity.x) < 5 &&
@@ -814,10 +846,42 @@ if (typeof Phaser === 'undefined') {
                 }
             }
 
-            if (this.sun.y > this.gameHeight - this.grassHeight - this.sun.displayHeight / 2 + 20) { // +20 for softer collision
-                this.sun.y = this.gameHeight - this.grassHeight - this.sun.displayHeight / 2;
-                if (this.sun.body.velocity) {
-                    this.sun.setVelocity(this.sun.body.velocity.x * 0.9, -Math.abs(this.sun.body.velocity.y) * 0.7); // Softer bounce
+            // Sun boundary collisions (top, sides, grass)
+            if (this.sun && this.sun.body && this.sun.body.velocity) {
+                const bounceThreshold = 30;
+                
+                // Top boundary
+                if (this.sun.y - this.sun.displayHeight / 2 < 0) {
+                    this.sun.y = this.sun.displayHeight / 2;
+                    if (Math.abs(this.sun.body.velocity.y) > bounceThreshold) {
+                        this.playObjectCollisionSound('sun');
+                    }
+                    this.sun.setVelocity(this.sun.body.velocity.x * 0.9, Math.abs(this.sun.body.velocity.y) * 0.7);
+                    this.sun.setAngularVelocity(this.sun.body.angularVelocity + Phaser.Math.Between(-10, 10));
+                }
+                
+                // Side boundaries
+                if (this.sun.x - this.sun.displayWidth / 2 < 0) {
+                    this.sun.x = this.sun.displayWidth / 2;
+                    if (Math.abs(this.sun.body.velocity.x) > bounceThreshold) {
+                        this.playObjectCollisionSound('sun');
+                    }
+                    this.sun.setVelocity(Math.abs(this.sun.body.velocity.x) * 0.7, this.sun.body.velocity.y * 0.9);
+                } else if (this.sun.x + this.sun.displayWidth / 2 > this.gameWidth) {
+                    this.sun.x = this.gameWidth - this.sun.displayWidth / 2;
+                    if (Math.abs(this.sun.body.velocity.x) > bounceThreshold) {
+                        this.playObjectCollisionSound('sun');
+                    }
+                    this.sun.setVelocity(-Math.abs(this.sun.body.velocity.x) * 0.7, this.sun.body.velocity.y * 0.9);
+                }
+                
+                // Grass/Ground bounce
+                if (this.sun.y > this.gameHeight - this.grassHeight - this.sun.displayHeight / 2 + 20) {
+                    this.sun.y = this.gameHeight - this.grassHeight - this.sun.displayHeight / 2;
+                    if (Math.abs(this.sun.body.velocity.y) > bounceThreshold) {
+                        this.playObjectCollisionSound('sun');
+                    }
+                    this.sun.setVelocity(this.sun.body.velocity.x * 0.9, -Math.abs(this.sun.body.velocity.y) * 0.7);
                 }
             }
             // Limit ball bounce to half of grass height, raised 10px higher
@@ -837,7 +901,7 @@ if (typeof Phaser === 'undefined') {
                     if (this.ball.body.velocity) {
                         // Play bounce sound if velocity is significant
                         if (Math.abs(this.ball.body.velocity.y) > 30) {
-                            if (this.bounceSound) this.bounceSound.play();
+                            if (this.ballSound) this.ballSound.play();
                         }
 
                         // Bounce the ball with reduced velocity
@@ -1029,14 +1093,25 @@ if (typeof Phaser === 'undefined') {
             }
         }
 
-        incrementBounceCounter() {
+        incrementBounceCounter(playSound = true) {
             this.totalBounces++;
             this.sessionBounces++;
             this.updateCounters();
 
-            // Play bounce sound
-            if (this.bounceSound) {
-                this.bounceSound.play();
+            // Play generic bounce sound only if requested
+            if (playSound && this.ballSound) {
+                this.ballSound.play();
+            }
+        }
+
+        playObjectCollisionSound(type) {
+            const priorityMap = { 'ball': 1, 'sun': 2, 'cloud': 3 };
+            const priority = priorityMap[type] || 999;
+
+            // Only update if this is the first sound this frame or it has higher priority (lower number)
+            if (!this.collisionSoundThisFrame || priority < this.priorityThisFrame) {
+                this.collisionSoundThisFrame = type;
+                this.priorityThisFrame = priority;
             }
         }
 
