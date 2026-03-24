@@ -246,7 +246,11 @@ if (typeof Phaser === 'undefined') {
                 } while (overlaps && attempts < 100);
 
                 const cloud = this.physics.add.sprite(cloudX, cloudY, texture);
-                cloud.setDisplaySize(225, 225);
+                // Vary cloud size by ±30% (100.8 to 187.2, rounded to integers)
+                const baseSize = 144;
+                const sizeVariation = Phaser.Math.Between(-30, 30); // -30% to +30%
+                const cloudSize = baseSize + Math.round(baseSize * sizeVariation / 100);
+                cloud.setDisplaySize(cloudSize, cloudSize);
                 cloud.setBounce(1.0);
                 cloud.setCollideWorldBounds(true);
                 cloud.setImmovable(true);

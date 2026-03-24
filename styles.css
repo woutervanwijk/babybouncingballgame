@@ -14,7 +14,8 @@ body {
     left: 0;
     width: 100vw;
     height: 100vh;
-    height: 100dvh; /* 100dvh usually extends into safe area on iOS Safari */
+    height: 100dvh;
+    /* 100dvh usually extends into safe area on iOS Safari */
     /* Alternatively, calc(100% + env(safe-area-inset-bottom)) can be used. */
     height: calc(100% + env(safe-area-inset-bottom));
     overflow: hidden;
@@ -42,14 +43,15 @@ body {
     right: 20px;
     width: 50px;
     height: 50px;
-    background-color: rgba(76, 175, 80); /* Match counter background */
+    background-color: rgba(76, 175, 80);
+    /* Match counter background */
     color: white;
     border: none;
     border-radius: 50%;
     cursor: pointer;
     font-size: 24px;
     z-index: 1000;
-    
+
     outline: none;
     display: flex;
     align-items: center;
@@ -63,7 +65,8 @@ body {
 }
 
 #mute-button {
-    bottom: 90px; /* 20 + 50 + 20 gap */
+    bottom: 90px;
+    /* 20 + 50 + 20 gap */
     background-image: url('svg/speaker.svg');
     background-repeat: no-repeat;
     background-position: center;
@@ -77,14 +80,15 @@ body {
 /* Counter table styles */
 #counter-table {
     font-family: Arial, sans-serif;
-    font-size: 14px; /* 20% larger than 12px */
+    font-size: 14px;
+    /* 20% larger than 12px */
     position: absolute;
     top: 10px;
     right: 10px;
     background-color: rgba(255, 255, 255, 0.8);
     padding: 8px;
     border-radius: 8px;
-    box-shadow: 0 2px 4px rgba(0,0,0,0.2);
+    box-shadow: 0 2px 4px rgba(0, 0, 0, 0.2);
     z-index: 100;
 }
 
@@ -104,7 +108,8 @@ body {
 
 #counter-table th:first-child,
 #counter-table td:first-child {
-    width: 24px; /* Fixed width for icon column */
+    width: 24px;
+    /* Fixed width for icon column */
     min-width: 24px;
     max-width: 24px;
 }
@@ -116,7 +121,8 @@ body {
 
 #counter-table th:nth-child(2) {
     text-align: right;
-    width: 40px; /* Fixed width for total number column */
+    width: 40px;
+    /* Fixed width for total number column */
 }
 
 #counter-table th:last-child {
@@ -143,13 +149,16 @@ body {
     position: fixed;
     top: 40px;
     padding: 8px 12px;
-    background-color: rgba(76, 175, 80); /* Green with 80% transparency */
+    background-color: rgba(76, 175, 80);
+    /* Green with 80% transparency */
     border-radius: 20px;
     font-family: Arial, sans-serif;
-    font-size: 18px; /* 66% of 28px (28 * 0.66 ≈ 18.48) */
+    font-size: 18px;
+    /* 66% of 28px (28 * 0.66 ≈ 18.48) */
     z-index: 1000;
     font-weight: bold;
-    color: white; /* Make counter text white */
+    color: white;
+    /* Make counter text white */
 }
 
 #total-counter {
@@ -166,7 +175,7 @@ body {
 
 .side-button:hover {
     background-color: #45a049;
-    box-shadow: 0 4px 15px rgba(0,0,0,0.4);
+    box-shadow: 0 4px 15px rgba(0, 0, 0, 0.4);
 }
 
 #reset-button:hover {
@@ -179,7 +188,7 @@ body {
 
 .side-button:active {
     background-color: #3d8b40;
-    box-shadow: 0 2px 8px rgba(0,0,0,0.2);
+    box-shadow: 0 2px 8px rgba(0, 0, 0, 0.2);
 }
 
 #reset-button:active {
