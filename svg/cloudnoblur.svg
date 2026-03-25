@@ -3,7 +3,7 @@
 <svg xmlns:rdf="http://www.w3.org/1999/02/22-rdf-syntax-ns#" xmlns="http://www.w3.org/2000/svg" xmlns:cc="http://creativecommons.org/ns#" xmlns:dc="http://purl.org/dc/elements/1.1/" xmlns:svg="http://www.w3.org/2000/svg" xmlns:inkscape="http://www.inkscape.org/namespaces/inkscape" xmlns:sodipodi="http://sodipodi.sourceforge.net/DTD/sodipodi-0.dtd" xmlns:ns1="http://sozi.baierouge.fr" xmlns:xlink="http://www.w3.org/1999/xlink" id="svg5105" viewBox="0 300 750 470" version="1.1" inkscape:version="0.91 r13725">
   <defs>
     <filter id="softBorderCloud" x="-20%" y="-20%" width="140%" height="140%">
-      <feGaussianBlur in="SourceGraphic" stdDeviation="2" />
+      <feGaussianBlur in="SourceGraphic" stdDeviation="0" />
     </filter>
   </defs>
   <g id="layer1" filter="url(#softBorderCloud)">

@@ -1217,17 +1217,17 @@ if (typeof Phaser === 'undefined') {
                             <td style="text-align: right;">${this.ballStreak + this.sunStreak + this.cloudStreak}</td>
                         </tr>
                         <tr>
-                            <td style="text-align: left; vertical-align: middle;"><img src="svg/ball.svg" width="16" height="16" style="vertical-align: middle; margin-left: 2px;"></td>
+                            <td style="text-align: left; vertical-align: middle;"><img src="svg/ballnoblur.svg" width="16" height="16" style="vertical-align: middle; margin-left: 2px;"></td>
                             <td style="text-align: right; vertical-align: middle;">${this.ballBounces}</td>
                             <td style="text-align: right; vertical-align: middle;">${this.ballStreak}</td>
                         </tr>
                         <tr>
-                            <td style="text-align: left; vertical-align: middle;"><img src="svg/sun.svg" width="20" height="20" style="vertical-align: middle;"></td>
+                            <td style="text-align: left; vertical-align: middle;"><img src="svg/sunnoblur.svg" width="20" height="20" style="vertical-align: middle;"></td>
                             <td style="text-align: right; vertical-align: middle;">${this.sunBounces}</td>
                             <td style="text-align: right; vertical-align: middle;">${this.sunStreak}</td>
                         </tr>
                         <tr>
-                            <td style="text-align: left; vertical-align: middle;"><img src="svg/cloud.svg" width="20" height="20" style="vertical-align: middle;"></td>
+                            <td style="text-align: left; vertical-align: middle;"><img src="svg/cloudnoblur.svg" width="20" height="20" style="vertical-align: middle;"></td>
                             <td style="text-align: right; vertical-align: middle;">${this.cloudBounces}</td>
                             <td style="text-align: right; vertical-align: middle;">${this.cloudStreak}</td>
                         </tr>

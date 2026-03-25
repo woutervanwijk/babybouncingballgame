@@ -15,7 +15,7 @@
   >
   <defs>
     <filter id="softBorderSun" x="-20%" y="-20%" width="140%" height="140%">
-      <feGaussianBlur in="SourceGraphic" stdDeviation="1.5" />
+      <feGaussianBlur in="SourceGraphic" stdDeviation="0" />
     </filter>
   </defs>
   <title
