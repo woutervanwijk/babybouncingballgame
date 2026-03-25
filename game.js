@@ -68,12 +68,6 @@ if (typeof Phaser === 'undefined') {
                 // This ensures the mute state is applied to all new sounds
                 this.sound.mute = this.initialMuteState;
 
-                // Now create the sound objects with the correct mute state
-                this.throwSound = this.sound.add('throw', { volume: 0.25 });
-                this.ballSound = this.sound.add('ballSound', { volume: 0.2 });
-                this.sunSound = this.sound.add('sunSound', { volume: 0.25 });
-                this.cloudSound = this.sound.add('cloudSound', { volume: 0.25 });
-
                 // For Safari, we might need to play a silent sound to unlock audio
                 if (this.isSafari()) {
                     const emptySound = this.sound.add('throw', { volume: 0 });
@@ -81,6 +75,13 @@ if (typeof Phaser === 'undefined') {
                         emptySound.play();
                     }
                 }
+
+                // Now create the sound objects with the correct mute state
+                this.throwSound = this.sound.add('throw', { volume: 0.25 });
+                this.ballSound = this.sound.add('ballSound', { volume: 0.2 });
+                this.sunSound = this.sound.add('sunSound', { volume: 0.25 });
+                this.cloudSound = this.sound.add('cloudSound', { volume: 0.25 });
+
             
 
             // Critical: Force button state to match the saved mute state
