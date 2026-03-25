@@ -370,20 +370,16 @@ if (typeof Phaser === 'undefined') {
                     gameObject.setVelocity(0, 0);
                     gameObject.setAngularVelocity(0);
                 }
-                gameObject.setDepth(1000); // Bring to front while dragging
+                gameObject.setDepth(100); // Bring to front while dragging
+                
+                // Store drag start position and time for throw velocity calculation
+                this.dragStartX = pointer.x;
+                this.dragStartY = pointer.y;
+                this.dragStartTime = Date.now();
             }, this);
 
             this.input.on('drag', (pointer, gameObject, dragX, dragY) => {
-                // Smoothly move object to pointer while maintaining physics velocity for collisions
-                if (gameObject.body) {
-                    // Update velocity so it can "push" other objects it hits
-                    // Cap the delta to prevent velocity spikes when frames are dropped
-                    const safeDelta = Math.max(this.game.loop.delta, 8);
-                    const velX = (dragX - gameObject.x) * (1000 / safeDelta);
-                    const velY = (dragY - gameObject.y) * (1000 / safeDelta);
-                    gameObject.setVelocity(velX, velY);
-                }
-
+                // Simply move object to pointer position - no physics during drag
                 gameObject.x = dragX;
                 gameObject.y = dragY;
 
@@ -414,30 +410,54 @@ if (typeof Phaser === 'undefined') {
                         gameObject.body.allowGravity = true;
                     }
 
-                    // Keep a bit of the drag velocity for a "flick" effect
-                    const maxFlick = 800;
-                    const finalVelX = Phaser.Math.Clamp(gameObject.body.velocity.x, -maxFlick, maxFlick);
-                    const finalVelY = Phaser.Math.Clamp(gameObject.body.velocity.y, -maxFlick, maxFlick);
-                    gameObject.setVelocity(finalVelX, finalVelY);
+                    // Calculate throw velocity based on drag distance and time
+                    const dragDuration = Date.now() - this.dragStartTime;
+                    const dragDistance = Math.sqrt(
+                        Math.pow(pointer.x - this.dragStartX, 2) +
+                        Math.pow(pointer.y - this.dragStartY, 2)
+                    );
 
-                    // Add rotation based on flick
-                    gameObject.setAngularVelocity(finalVelX * 0.75);
+                    // Calculate speed (pixels per second)
+                    const releaseSpeed = dragDuration > 0 ? (dragDistance / dragDuration) * 1000 : 0;
 
-                    // Play throw sound if it was a significant flick
-                    if (Math.abs(finalVelX) > 200 || Math.abs(finalVelY) > 200) {
+                    // Threshold for considering it a "throw" vs "place"
+                    const throwThreshold = 300; // pixels per second
+                    const isFastFlick = releaseSpeed > throwThreshold;
+
+                    if (isFastFlick) {
+                        // Fast flick = THROW: calculate velocity based on drag direction and speed
+                        const throwAngle = Math.atan2(
+                            pointer.y - this.dragStartY,
+                            pointer.x - this.dragStartX
+                        );
+                        const throwSpeed = Math.min(releaseSpeed * 2, 3000); // Double speed, cap at 3000px/s
+                        const finalVelX = Math.cos(throwAngle) * throwSpeed;
+                        const finalVelY = Math.sin(throwAngle) * throwSpeed;
+                        gameObject.setVelocity(finalVelX, finalVelY);
+
+                        // Add rotation based on flick
+                        gameObject.setAngularVelocity(finalVelX * 0.75);
+
+                        // Play throw sound
                         const throwSound = this.getSound('throwSound');
                         if (throwSound && this.canPlayAudio()) throwSound.play();
+
+                        // Reset streak counters on throw
+                        this.resetStreakCounters();
+
+                        // If ball was thrown, reset session counter
+                        if (gameObject === this.ball) {
+                            this.isBallMoving = true;
+                            this.sessionBounces = 0;
+                            this.updateCounters();
+                        }
+                    } else {
+                        // Slow drag = PLACE: stop the object gently
+                        gameObject.setVelocity(0, 0);
+                        gameObject.setAngularVelocity(0);
+                        
+                        // Don't reset counters on placement
                     }
-
-                    // Reset streak counters on any throw/flick
-                    this.resetStreakCounters();
-                }
-
-                // If ball was thrown/flicked, reset session counter
-                if (gameObject === this.ball && (Math.abs(gameObject.body.velocity.x) > 100 || Math.abs(gameObject.body.velocity.y) > 100)) {
-                    this.isBallMoving = true;
-                    this.sessionBounces = 0;
-                    this.updateCounters();
                 }
             }, this);
 
