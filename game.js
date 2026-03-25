@@ -28,6 +28,7 @@ if (typeof Phaser === 'undefined') {
             this.arrowShowTimeout = null; // Timeout for showing arrow
             this.isDragging = false; // Track if an object is being dragged
             this.lastDragEndTime = 0; // Timestamp of last drag end
+            this.counterUpdatesEnabled = true; // Allow counter updates by default
 
             // Sound priority system removed (sounds play immediately)
         }
@@ -189,7 +190,8 @@ if (typeof Phaser === 'undefined') {
             });
             // Create sun (NO GRAVITY - only moves when hit)
             const playAreaHeight = this.gameHeight - this.grassHeight;
-            this.sun = this.physics.add.sprite(120, 120, 'sun');
+            const sunPosition = this.getRandomSunPosition();
+            this.sun = this.physics.add.sprite(sunPosition.x, sunPosition.y, 'sun');
             this.sun.setDisplaySize(120, 120);
             this.sun.setFlipX(Math.random() < 0.5);
             this.sun.setAngle(Phaser.Math.Between(-5, 5));
@@ -204,12 +206,31 @@ if (typeof Phaser === 'undefined') {
             this.sun.body.allowGravity = false;
             this.sun.setDepth(10); // Sun stays in back
 
+            // Prevent counter updates during initialization period
+            this.counterUpdatesEnabled = false;
+            
+            // Re-enable counters after 500ms to avoid counting initial object bounces
+            setTimeout(() => {
+                this.totalBounces = 0;
+                this.sessionBounces = 0;
+                this.ballBounces = 0;
+                this.sunBounces = 0;
+                this.cloudBounces = 0;
+                this.ballStreak = 0;
+                this.sunStreak = 0;
+                this.cloudStreak = 0;
+                this.counterUpdatesEnabled = true;
+                this.updateCounters();
+            }, 1000);
+
             // Determine screen mode based on width
-            if (this.gameWidth >= 1100 || this.gameHeight >= 1100) {
+            if (this.gameWidth >= 1200 || this.gameHeight >= 1200) {
+                this.screenMode = "xxlargeScreen";
+            } else if (this.gameWidth >= 1024 || this.gameHeight >= 1024) {
                 this.screenMode = "xlargeScreen";
-            } else if (this.gameWidth >= 900 || this.gameHeight >= 900) {
+            } else if (this.gameWidth >= 750 || this.gameHeight >= 750) {
                 this.screenMode = "largeScreen";
-            } else if (this.gameWidth >= 700 || this.gameHeight >= 700) {
+            } else if (this.gameWidth >= 600 || this.gameHeight >= 600) {
                 this.screenMode = "mediumScreen";
             } else {
                 this.screenMode = "smallScreen";
@@ -217,7 +238,7 @@ if (typeof Phaser === 'undefined') {
 
             // Create clouds (NO GRAVITY - only move when hit)
             const cloudTextures = ["cloud"];
-            const cloudCount = this.screenMode === "xlargeScreen" ? 9 : (this.screenMode === "largeScreen" ? 7 : (this.screenMode === "mediumScreen" ? 5 : 3));
+            const cloudCount = this.screenMode === "xxlargeScreen" ? 12 : this.screenMode === "xlargeScreen" ? 9 : this.screenMode === "largeScreen" ? 7 : this.screenMode === "mediumScreen" ? 5 : 3;
             this.clouds = [];
             for (let i = 0; i < cloudCount; i++) {
                 const texture = cloudTextures[i % cloudTextures.length];
@@ -267,7 +288,7 @@ if (typeof Phaser === 'undefined') {
             this.physics.add.collider(this.ball, this.clouds, this.handleBallCloudCollision, null, this);
             this.physics.add.collider(this.ball, this.sun, this.handleBallSunCollision, null, this);
             this.physics.add.collider(this.clouds, this.clouds, this.handleCloudCloudCollision, null, this);
-            this.physics.add.collider(this.clouds, this.sun, this.handleCloudSunCollision, null, this);
+            // Removed cloud-sun collision: this.physics.add.collider(this.clouds, this.sun, this.handleCloudSunCollision, null, this);
 
             // Set up input for centrifuge aiming system (any key)
             this.input.keyboard.on('keydown', (event) => {
@@ -371,7 +392,7 @@ if (typeof Phaser === 'undefined') {
                     gameObject.setAngularVelocity(0);
                 }
                 gameObject.setDepth(100); // Bring to front while dragging
-                
+
                 // Store drag start position and time for throw velocity calculation
                 this.dragStartX = pointer.x;
                 this.dragStartY = pointer.y;
@@ -444,18 +465,17 @@ if (typeof Phaser === 'undefined') {
 
                         // Reset streak counters on throw
                         this.resetStreakCounters();
-
+                        
                         // If ball was thrown, reset session counter
                         if (gameObject === this.ball) {
                             this.isBallMoving = true;
-                            this.sessionBounces = 0;
-                            this.updateCounters();
+        
                         }
                     } else {
                         // Slow drag = PLACE: stop the object gently
                         gameObject.setVelocity(0, 0);
                         gameObject.setAngularVelocity(0);
-                        
+
                         // Don't reset counters on placement
                     }
                 }
@@ -504,9 +524,8 @@ if (typeof Phaser === 'undefined') {
             this.isBallMoving = true;
 
             // Reset session counter when ball is thrown
-            this.sessionBounces = 0;
-            this.updateCounters();
-
+            this.resetStreakCounters();
+            
             // DON'T reset cloud and sun velocities - let them keep moving
             // Only reset if they're not already moving
             this.clouds.forEach(cloud => {
@@ -564,7 +583,8 @@ if (typeof Phaser === 'undefined') {
             const cloudSound = this.getSound('cloudSound');
             if (ballSound && this.canPlayAudio()) ballSound.play();
             if (cloudSound && this.canPlayAudio()) cloudSound.play();
-            this.incrementBounceCounter('ball', false);
+            this.incrementBounceCounter('ball', true, true, true); // Increment both total and session once
+            this.incrementBounceCounter('cloud', true, false, false); // Don't increment total or session twice
         }
 
         handleBallSunCollision(ball, sun) {
@@ -611,7 +631,8 @@ if (typeof Phaser === 'undefined') {
             const sunSound = this.getSound('sunSound');
             if (ballSound && this.canPlayAudio()) ballSound.play();
             if (sunSound && this.canPlayAudio()) sunSound.play();
-            this.incrementBounceCounter('ball', false);
+            this.incrementBounceCounter('ball', true, true, true); // Increment both total and session once
+            this.incrementBounceCounter('sun', true, false, false); // Don't increment total or session twice
         }
 
         // Add soft collision handling for cloud-cloud and cloud-sun collisions
@@ -661,7 +682,7 @@ if (typeof Phaser === 'undefined') {
             if (cloudSound && this.canPlayAudio()) cloudSound.play();
 
             // Increment bounce counter
-            this.incrementBounceCounter('cloud', false);
+            this.incrementBounceCounter('cloud', true, true, true);
         }
 
         handleCloudSunCollision(cloud, sun) {
@@ -712,7 +733,8 @@ if (typeof Phaser === 'undefined') {
             if (cloudSound && this.canPlayAudio()) cloudSound.play();
 
             // Increment bounce counter for cloud-sun collisions
-            this.incrementBounceCounter('sun', false);
+            this.incrementBounceCounter('sun', true, true, true);
+            this.incrementBounceCounter('cloud', true, false, false);
         }
 
         handleResizeCollisions(oldWidth, oldHeight, newWidth, newHeight) {
@@ -1059,8 +1081,8 @@ if (typeof Phaser === 'undefined') {
             // Random direction: clockwise or counter-clockwise
             this.rotationDirection = Math.random() < 0.5 ? 1 : -1;
             // Reset session counter immediately when aiming starts
-            this.sessionBounces = 0;
-            this.updateCounters();
+            this.resetStreakCounters();
+
             // Set timeout to show arrow after 200ms
             this.arrowShowTimeout = setTimeout(() => {
                 if (this.isAiming) {
@@ -1068,6 +1090,19 @@ if (typeof Phaser === 'undefined') {
                 }
             }, 200);
         }
+
+    // Helper method to generate random sun position in upper half of screen
+    getRandomSunPosition() {
+        const minX = 120; // Minimum X position (left margin)
+        const maxX = this.gameWidth - 120; // Maximum X position (right margin)
+        const minY = 80; // Minimum Y position (top margin)
+        const maxY = (this.gameHeight - this.grassHeight) * 0.4; // Upper half of playable area
+        
+        return {
+            x: Phaser.Math.Between(minX, maxX),
+            y: Phaser.Math.Between(minY, maxY)
+        };
+    }
 
         updateDirectionIndicator() {
             if (!this.directionIndicator || !this.ball) return;
@@ -1188,17 +1223,16 @@ if (typeof Phaser === 'undefined') {
 
             this.isBallMoving = true;
 
-            // Update counters (session counter was already reset when arrow appeared)
-            this.updateCounters();
-
             // Removed the code that set objects to 'immovable' here.
             // Objects now slow down naturally via damping, which prevents accidental 'freezing'.
         }
 
         resetStreakCounters() {
+            this.sessionBounces = 0;
             this.ballStreak = 0;
             this.sunStreak = 0;
             this.cloudStreak = 0;
+            this.updateCounters();
         }
 
         updateCounters() {
@@ -1214,7 +1248,7 @@ if (typeof Phaser === 'undefined') {
                         <tr>
                             <th style="text-align: left;"><span style="margin-left: 6px">T</span></th>
                             <td style="text-align: right;">${this.totalBounces}</td>
-                            <td style="text-align: right;">${this.ballStreak + this.sunStreak + this.cloudStreak}</td>
+                            <td style="text-align: right;">${this.sessionBounces}</td>
                         </tr>
                         <tr>
                             <td style="text-align: left; vertical-align: middle;"><img src="svg/ballnoblur.svg" width="16" height="16" style="vertical-align: middle; margin-left: 2px;"></td>
@@ -1248,10 +1282,20 @@ if (typeof Phaser === 'undefined') {
             return this[soundName];
         }
 
-        incrementBounceCounter(objectType = 'ball', playSound = true) {
-            this.totalBounces++;
-            this.sessionBounces++;
+        incrementBounceCounter(objectType = 'ball', playSound = true, incrementTotal = true, incrementSession = true) {
+            // console.log('increment', objectType, incrementTotal, incrementSession, this.sessionBounces)
+            // Skip counter updates during initialization period
+            if (!this.counterUpdatesEnabled) {
+                return;
+            }
 
+            if (incrementTotal) {
+                this.totalBounces++;
+            }
+            if (incrementSession) {
+                this.sessionBounces++;
+            }
+            // console.log('increment2', objectType, incrementTotal, incrementSession, this.totalBounces, this.sessionBounces)
             // Increment object-specific counter
             switch (objectType) {
                 case 'ball':
@@ -1288,8 +1332,9 @@ if (typeof Phaser === 'undefined') {
             this.ball.setAngularVelocity(0);
             this.ball.setAngle(0);
 
-            // Reset sun position and velocity (always top-left corner)
-            this.sun.setPosition(120, 120);
+            // Reset sun position and velocity (random position in upper half)
+            const sunPosition = this.getRandomSunPosition();
+            this.sun.setPosition(sunPosition.x, sunPosition.y);
             this.sun.setVelocity(0, 0);
             this.sun.setAngularVelocity(0);
             this.sun.setAngle(Phaser.Math.Between(-5, 5));
@@ -1342,9 +1387,15 @@ if (typeof Phaser === 'undefined') {
                 this.arrowShowTimeout = null;
             }
 
-            // Reset both counters
+            // Reset all counters
             this.totalBounces = 0;
             this.sessionBounces = 0;
+            this.ballBounces = 0;
+            this.sunBounces = 0;
+            this.cloudBounces = 0;
+            this.ballStreak = 0;
+            this.sunStreak = 0;
+            this.cloudStreak = 0;
             this.updateCounters();
         }
 
