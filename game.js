@@ -74,10 +74,19 @@ if (typeof Phaser === 'undefined') {
                 this.sunSound = this.sound.add('sunSound', { volume: 0.25 });
                 this.cloudSound = this.sound.add('cloudSound', { volume: 0.25 });
 
-                // Critical: Force button state to match the saved mute state
-                // Use a longer timeout to ensure this happens after all initialization
-                setTimeout(() => {
-                    const muteButton = document.getElementById('mute-button');
+                // For Safari, we might need to play a silent sound to unlock audio
+                if (this.isSafari()) {
+                    const emptySound = this.sound.add('throw', { volume: 0 });
+                    if (emptySound) {
+                        emptySound.play();
+                    }
+                }
+            
+
+            // Critical: Force button state to match the saved mute state
+            // Use a longer timeout to ensure this happens after all initialization
+            setTimeout(() => {
+                const muteButton = document.getElementById('mute-button');
                     if (muteButton) {
                         // Always use the initialMuteState for the button during initialization
                         // This prevents any temporary state changes from affecting the UI
@@ -100,11 +109,23 @@ if (typeof Phaser === 'undefined') {
                         }, 50);
                     }
                 }, 100); // Increased timeout to ensure it runs after everything else
-            };
+            }
 
             // Use direct DOM event listeners to capture first user interaction
             const handleFirstInteraction = () => {
-                initializeSounds();
+                // For Safari, we need to ensure the audio context is resumed
+                if (this.sound.context && typeof this.sound.context.resume === 'function') {
+                    this.sound.context.resume().then(() => {
+                        console.log('Audio context resumed successfully');
+                        initializeSounds();
+                    }).catch(error => {
+                        console.error('Error resuming audio context:', error);
+                        initializeSounds();
+                    });
+                } else {
+                    initializeSounds();
+                }
+                
                 window.removeEventListener('pointerdown', handleFirstInteraction);
                 window.removeEventListener('touchstart', handleFirstInteraction);
                 window.removeEventListener('click', handleFirstInteraction);
@@ -1269,6 +1290,12 @@ if (typeof Phaser === 'undefined') {
                 `;
                 counterTable.innerHTML = tableHTML;
             }
+        }
+
+        // Helper method to detect Safari browser
+        isSafari() {
+            const userAgent = window.navigator.userAgent;
+            return userAgent.includes('Safari') && !userAgent.includes('Chrome') && !userAgent.includes('Chromium');
         }
 
         // Helper method to check if audio can be played
