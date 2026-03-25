@@ -430,7 +430,7 @@ if (typeof Phaser === 'undefined') {
                             pointer.y - this.dragStartY,
                             pointer.x - this.dragStartX
                         );
-                        const throwSpeed = Math.min(releaseSpeed * 2, 3000); // Double speed, cap at 3000px/s
+                        const throwSpeed = Math.min(releaseSpeed * 3, 6000);
                         const finalVelX = Math.cos(throwAngle) * throwSpeed;
                         const finalVelY = Math.sin(throwAngle) * throwSpeed;
                         gameObject.setVelocity(finalVelX, finalVelY);
