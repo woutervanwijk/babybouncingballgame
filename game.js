@@ -1396,6 +1396,15 @@ if (typeof Phaser === 'undefined') {
             this.ballStreak = 0;
             this.sunStreak = 0;
             this.cloudStreak = 0;
+            
+            // Prevent counter updates during reset period
+            this.counterUpdatesEnabled = false;
+            
+            // Re-enable counters after 500ms to avoid counting initial object bounces
+            setTimeout(() => {
+                this.counterUpdatesEnabled = true;
+            }, 500);
+            
             this.updateCounters();
         }
 
