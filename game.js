@@ -121,18 +121,23 @@ if (typeof Phaser === 'undefined') {
 
             // Use direct DOM event listeners to capture first user interaction
             const handleFirstInteraction = () => {
-                // For Safari, we need to ensure the audio context is resumed
-                if (this.sound.context && typeof this.sound.context.resume === 'function') {
-                    this.sound.context.resume().then(() => {
-                        console.log('Audio context resumed successfully');
-                        initializeSounds();
-                    }).catch(error => {
-                        console.error('Error resuming audio context:', error);
-                        initializeSounds();
-                    });
-                } else {
-                    initializeSounds();
+                // For Safari, we NEED to resume and unlock synchronously within the first interaction handler
+                if (this.sound.context) {
+                    if (typeof this.sound.context.resume === 'function') {
+                        this.sound.context.resume();
+                    }
                 }
+                
+                // Also call Pharaoh's internal unlock if available
+                if (this.sound && typeof this.sound.unlock === 'function') {
+                    this.sound.unlock();
+                }
+
+                // Call initialize sounds synchronously! 
+                // Don't wait for any promise resolution, as Safari may drop the user gesture.
+                initializeSounds();
+                
+                console.log('Interaction detected: Audio system initialized synchronously');
 
                 window.removeEventListener('pointerdown', handleFirstInteraction);
                 window.removeEventListener('touchstart', handleFirstInteraction);

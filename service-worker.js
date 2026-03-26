@@ -29,6 +29,11 @@ self.addEventListener('install', event => {
 });
 
 self.addEventListener('fetch', event => {
+  // Bypassing cache for sounds - Safari on iOS doesn't play audio from a service worker cache well
+  if (event.request.url.includes('assets/audio/')) {
+    return;
+  }
+
   // Network-First strategy: try the network first, then fallback to cache
   event.respondWith(
     fetch(event.request)
