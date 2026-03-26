@@ -40,7 +40,7 @@ body {
 
 .side-button {
     position: fixed;
-    right: 20px;
+    right: calc(20px + env(safe-area-inset-right, 0px));
     width: 50px;
     height: 50px;
     background-color: rgba(76, 175, 80);
@@ -61,11 +61,11 @@ body {
 }
 
 #reset-button {
-    bottom: 20px;
+    bottom: calc(20px + env(safe-area-inset-bottom, 0px));
 }
 
 #mute-button {
-    bottom: 90px;
+    bottom: calc(90px + env(safe-area-inset-bottom, 0px));
     /* 20 + 50 + 20 gap */
     background-image: url('svg/speaker.svg');
     background-repeat: no-repeat;
@@ -83,8 +83,8 @@ body {
     font-size: 14px;
     /* 20% larger than 12px */
     position: absolute;
-    top: 10px;
-    right: 10px;
+    top: calc(10px + env(safe-area-inset-top, 0px));
+    right: calc(10px + env(safe-area-inset-right, 0px));
     background-color: rgba(255, 255, 255, 0.8);
     padding: 8px;
     border-radius: 8px;

@@ -9,8 +9,8 @@ if (typeof Phaser === 'undefined') {
             this.gameWidth = 800;
             this.gameHeight = 600;
             this.grassHeight = 0; // Will be set in create() method
-            this.totalBounces = 0;
-            this.sessionBounces = 0;
+            this.totalPoints = 0;
+            this.sessionPoints = 0;
             // Object-specific bounce counters
             this.ballBounces = 0;
             this.sunBounces = 0;
@@ -29,7 +29,14 @@ if (typeof Phaser === 'undefined') {
             this.isDragging = false; // Track if an object is being dragged
             this.lastDragEndTime = 0; // Timestamp of last drag end
             this.counterUpdatesEnabled = true; // Allow counter updates by default
-
+            
+            // Debug configuration
+            this.debugEnabled = false; // Master debug switch
+            this.debugHitAreas = false; // Show hit test areas
+            this.debugObjectSizes = false; // Show object bounding boxes
+            this.debugPhysics = false; // Show physics bodies
+            this.debugGrassArea = false; // Show grass boundary
+            
             // Sound priority system removed (sounds play immediately)
         }
 
@@ -37,7 +44,7 @@ if (typeof Phaser === 'undefined') {
             // Load SVG assets from the svg directory
             // Load SVG assets with higher resolution for Retina displays
             // We load them at 2x the display size to ensure they're sharp
-            this.load.svg('cloud', 'svg/cloud.svg', { width: 450, height: 450 });
+            this.load.svg('cloud', 'svg/cloud.svg', { width: 250, height: 250 });
             this.load.svg('sun', 'svg/sun.svg', { width: 240, height: 240 });
             this.load.svg('ball', 'svg/ball.svg', { width: 200, height: 200 });
 
@@ -82,12 +89,12 @@ if (typeof Phaser === 'undefined') {
                 this.sunSound = this.sound.add('sunSound', { volume: 0.25 });
                 this.cloudSound = this.sound.add('cloudSound', { volume: 0.25 });
 
-            
 
-            // Critical: Force button state to match the saved mute state
-            // Use a longer timeout to ensure this happens after all initialization
-            setTimeout(() => {
-                const muteButton = document.getElementById('mute-button');
+
+                // Critical: Force button state to match the saved mute state
+                // Use a longer timeout to ensure this happens after all initialization
+                setTimeout(() => {
+                    const muteButton = document.getElementById('mute-button');
                     if (muteButton) {
                         // Always use the initialMuteState for the button during initialization
                         // This prevents any temporary state changes from affecting the UI
@@ -126,7 +133,7 @@ if (typeof Phaser === 'undefined') {
                 } else {
                     initializeSounds();
                 }
-                
+
                 window.removeEventListener('pointerdown', handleFirstInteraction);
                 window.removeEventListener('touchstart', handleFirstInteraction);
                 window.removeEventListener('click', handleFirstInteraction);
@@ -179,14 +186,17 @@ if (typeof Phaser === 'undefined') {
             this.gameHeight = this.game.config.height;
 
             // Create grass boundary (adaptive height based on screen size)
-            this.grassHeight = Math.min(this.gameHeight * 0.2, 150); // Max 150px grass
-            this.grass = this.add.rectangle(0, this.gameHeight - this.grassHeight / 2,
-                this.gameWidth, this.grassHeight, 0x7CFC00)
+            // Extra height for safe area and rotation overdraw
+            this.grassHeight = Math.min(this.gameHeight * 0.2, 150);
+            const grassWidth = this.gameWidth + 2000; // Plenty of overdraw
+            this.grass = this.add.rectangle(-1000, this.gameHeight - this.grassHeight / 2 + 250,
+                grassWidth, this.grassHeight + 500, 0x7CFC00) // 500px extra depth for safe areas
                 .setOrigin(0, 0.5)
                 .setDepth(0);
 
-            // Create sky background (fill remaining space)
-            this.sky = this.add.rectangle(0, 0, this.gameWidth, this.gameHeight, 0x87CEEB)
+            // Create sky background (fill remaining space with plenty of overdraw for rotation)
+            const overdraw = 1000;
+            this.sky = this.add.rectangle(-overdraw, -overdraw, this.gameWidth + overdraw * 2, this.gameHeight + overdraw * 2, 0x87CEEB)
                 .setOrigin(0, 0)
                 .setDepth(-10);
 
@@ -199,14 +209,24 @@ if (typeof Phaser === 'undefined') {
             this.ball.setAngularDrag(150); // Natural rotation damping
             this.ball.setDepth(50); // Bring ball to front
             this.ball.body.setCircle(this.ball.width / 2);
+            this.ball.body.onWorldBounds = true; // Enable world bounds events
 
-            // Play bounce sound when ball hits world bounds
+            // Play bounce sound when objects hit world bounds
             this.physics.world.on('worldbounds', (body) => {
-                if (body && body.gameObject === this.ball) {
-                    // Only play if it hits with some force
-                    if (Math.abs(body.velocity.x) > 30 || Math.abs(body.velocity.y) > 30) {
-                        const ballSound = this.getSound('ballSound');
-                        if (ballSound && this.canPlayAudio()) ballSound.play();
+                if (body && body.gameObject) {
+                    // Lower threshold for clouds/sun which tend to move slower than the ball
+                    const threshold = (body.gameObject === this.ball) ? 30 : 5;
+                    if (Math.abs(body.velocity.x) > threshold || Math.abs(body.velocity.y) > threshold) {
+                        if (body.gameObject === this.ball) {
+                            const ballSound = this.getSound('ballSound');
+                            if (ballSound && this.canPlayAudio()) ballSound.play();
+                        } else if (this.clouds && this.clouds.includes(body.gameObject)) {
+                            const cloudSound = this.getSound('cloudSound');
+                            if (cloudSound && this.canPlayAudio()) cloudSound.play();
+                        } else if (body.gameObject === this.sun) {
+                            const sunSound = this.getSound('sunSound');
+                            if (sunSound && this.canPlayAudio()) sunSound.play();
+                        }
                     }
                 }
             });
@@ -222,19 +242,20 @@ if (typeof Phaser === 'undefined') {
             this.sun.setImmovable(true);
             this.sun.setVelocity(0, 0);
 
-            // Remove gravity from sun
-            const sunRadius = this.sun.width * 0.2025; // 10% smaller from 0.225
-            this.sun.body.setCircle(sunRadius, this.sun.width * 0.2975, this.sun.width * 0.2975); // Centered hitbox
+            // Set sun hitbox to full visual bounds to ensure it touches borders
+            const sunRadius = this.sun.width * 0.5; // Full width as radius
+            this.sun.body.setCircle(sunRadius, 0, 0); // centered full hitbox
             this.sun.body.allowGravity = false;
+            this.sun.body.onWorldBounds = true; // Enable world bounds events for sun
             this.sun.setDepth(10); // Sun stays in back
 
             // Prevent counter updates during initialization period
             this.counterUpdatesEnabled = false;
-            
+
             // Re-enable counters after 500ms to avoid counting initial object bounces
             setTimeout(() => {
-                this.totalBounces = 0;
-                this.sessionBounces = 0;
+                this.totalPoints = 0;
+                this.sessionPoints = 0;
                 this.ballBounces = 0;
                 this.sunBounces = 0;
                 this.cloudBounces = 0;
@@ -290,7 +311,7 @@ if (typeof Phaser === 'undefined') {
 
                 const cloud = this.physics.add.sprite(cloudX, cloudY, texture);
                 // Vary cloud size by ±30% (100.8 to 187.2, rounded to integers)
-                const baseSize = 144;
+                const baseSize = 124;
                 const sizeVariation = Phaser.Math.Between(-30, 30); // -30% to +30%
                 const cloudSize = baseSize + Math.round(baseSize * sizeVariation / 100);
                 cloud.setDisplaySize(cloudSize, cloudSize);
@@ -298,8 +319,9 @@ if (typeof Phaser === 'undefined') {
                 cloud.setCollideWorldBounds(true);
                 cloud.setImmovable(true);
                 cloud.body.allowGravity = false;
-                const cloudRadius = cloud.width * 0.162; // 10% smaller from 0.18
-                cloud.body.setCircle(cloudRadius, cloud.width * 0.338, cloud.width * 0.338); // Centered hitbox
+                cloud.body.onWorldBounds = true; // Enable world bounds events for clouds
+                const cloudRadius = cloud.width * 0.5; // Full width as radius
+                cloud.body.setCircle(cloudRadius, 0, 0); // centered full hitbox
                 cloud.setFlipX(Math.random() < 0.5);
                 cloud.setAngle(Phaser.Math.Between(-5, 5));
                 cloud.setDepth(20); // Clouds stay in front of sun
@@ -324,6 +346,12 @@ if (typeof Phaser === 'undefined') {
                 // Any key release throws the ball
                 if (event.key.length === 1) {
                     this.throwBallInDirection(true); // True means from keyboard
+                }
+                
+                // Debug toggle with D key
+                if (event.key === 'd' || event.key === 'D') {
+                    const debugState = this.toggleDebug();
+                    console.log('Debug mode: ' + (debugState ? 'ON' : 'OFF'));
                 }
             }, this);
 
@@ -487,11 +515,11 @@ if (typeof Phaser === 'undefined') {
 
                         // Reset streak counters on throw
                         this.resetStreakCounters();
-                        
+
                         // If ball was thrown, reset session counter
                         if (gameObject === this.ball) {
                             this.isBallMoving = true;
-        
+
                         }
                     } else {
                         // Slow drag = PLACE: stop the object gently
@@ -547,7 +575,7 @@ if (typeof Phaser === 'undefined') {
 
             // Reset session counter when ball is thrown
             this.resetStreakCounters();
-            
+
             // DON'T reset cloud and sun velocities - let them keep moving
             // Only reset if they're not already moving
             this.clouds.forEach(cloud => {
@@ -653,8 +681,12 @@ if (typeof Phaser === 'undefined') {
             const sunSound = this.getSound('sunSound');
             if (ballSound && this.canPlayAudio()) ballSound.play();
             if (sunSound && this.canPlayAudio()) sunSound.play();
-            this.incrementBounceCounter('ball', true, true, true); // Increment both total and session once
-            this.incrementBounceCounter('sun', true, false, false); // Don't increment total or session twice
+
+            // Scoring: 1st hit = 2pts, 2nd hit = 4pts, 3rd+ hit = 8pts
+            const sunPoints = this.sunStreak === 0 ? 2 : (this.sunStreak === 1 ? 4 : 8);
+
+            this.incrementBounceCounter('ball', false, true, true, sunPoints); // Add points to total/session
+            this.incrementBounceCounter('sun', false, false, false); // Increment sun hits counter only
         }
 
         // Add soft collision handling for cloud-cloud and cloud-sun collisions
@@ -769,14 +801,23 @@ if (typeof Phaser === 'undefined') {
 
             // Update grass and sky to new dimensions
             if (this.grass) {
-                this.grass.width = newWidth;
-                this.grass.height = this.grassHeight;
-                this.grass.y = newHeight - this.grassHeight / 2;
+                const overdraw = 1000;
+                this.grass.width = newWidth + overdraw * 2;
+                this.grass.height = this.grassHeight + 500; // Extra depth for bottom safe zones
+                this.grass.x = -overdraw;
+                this.grass.y = newHeight - this.grassHeight / 2 + 250; // Centered but shifted down
             }
             if (this.sky) {
-                this.sky.width = newWidth;
-                this.sky.height = newHeight; // Make sky cover full height so it stays perfectly behind grass
+                const overdraw = 1000;
+                this.sky.width = newWidth + overdraw * 2;
+                this.sky.height = newHeight + overdraw * 2;
+                this.sky.x = -overdraw;
+                this.sky.y = -overdraw;
             }
+
+            // Force immediate redraw of camera to prevent garbled background on some mobile browsers
+            this.cameras.main.setBackgroundColor('#87CEEB');
+            this.cameras.main.setDirty();
 
             // Check if objects are now outside the new bounds and make them bounce
             const grassBottom = newHeight - this.grassHeight;
@@ -901,6 +942,9 @@ if (typeof Phaser === 'undefined') {
             }
 
             // Sound priority execution removed
+            
+            // Draw debug information
+            this.drawDebug();
 
             // Check if ball has stopped moving
             if (this.isBallMoving &&
@@ -1113,18 +1157,18 @@ if (typeof Phaser === 'undefined') {
             }, 200);
         }
 
-    // Helper method to generate random sun position in upper half of screen
-    getRandomSunPosition() {
-        const minX = 120; // Minimum X position (left margin)
-        const maxX = this.gameWidth - 120; // Maximum X position (right margin)
-        const minY = 80; // Minimum Y position (top margin)
-        const maxY = (this.gameHeight - this.grassHeight) * 0.4; // Upper half of playable area
-        
-        return {
-            x: Phaser.Math.Between(minX, maxX),
-            y: Phaser.Math.Between(minY, maxY)
-        };
-    }
+        // Helper method to generate random sun position in upper half of screen
+        getRandomSunPosition() {
+            const minX = 120; // Minimum X position (left margin)
+            const maxX = this.gameWidth - 120; // Maximum X position (right margin)
+            const minY = 80; // Minimum Y position (top margin)
+            const maxY = (this.gameHeight - this.grassHeight) * 0.4; // Upper half of playable area
+
+            return {
+                x: Phaser.Math.Between(minX, maxX),
+                y: Phaser.Math.Between(minY, maxY)
+            };
+        }
 
         updateDirectionIndicator() {
             if (!this.directionIndicator || !this.ball) return;
@@ -1250,7 +1294,7 @@ if (typeof Phaser === 'undefined') {
         }
 
         resetStreakCounters() {
-            this.sessionBounces = 0;
+            this.sessionPoints = 0;
             this.ballStreak = 0;
             this.sunStreak = 0;
             this.cloudStreak = 0;
@@ -1268,9 +1312,9 @@ if (typeof Phaser === 'undefined') {
                 const tableHTML = `
                     <table>
                         <tr>
-                            <th style="text-align: left;"><span style="margin-left: 6px">T</span></th>
-                            <td style="text-align: right;">${this.totalBounces}</td>
-                            <td style="text-align: right;">${this.sessionBounces}</td>
+                            <th style="text-align: left;"><span style="margin-left: 6px">P</span></th>
+                            <td style="text-align: right;">${this.totalPoints}</td>
+                            <td style="text-align: right;">${this.sessionPoints}</td>
                         </tr>
                         <tr>
                             <td style="text-align: left; vertical-align: middle;"><img src="svg/ballnoblur.svg" width="16" height="16" style="vertical-align: middle; margin-left: 2px;"></td>
@@ -1310,20 +1354,20 @@ if (typeof Phaser === 'undefined') {
             return this[soundName];
         }
 
-        incrementBounceCounter(objectType = 'ball', playSound = true, incrementTotal = true, incrementSession = true) {
-            // console.log('increment', objectType, incrementTotal, incrementSession, this.sessionBounces)
+        incrementBounceCounter(objectType = 'ball', playSound = true, incrementTotal = true, incrementSession = true, points = 1) {
+            // console.log('increment', objectType, incrementTotal, incrementSession, this.sessionPoints)
             // Skip counter updates during initialization period
             if (!this.counterUpdatesEnabled) {
                 return;
             }
 
             if (incrementTotal) {
-                this.totalBounces++;
+                this.totalPoints += points;
             }
             if (incrementSession) {
-                this.sessionBounces++;
+                this.sessionPoints += points;
             }
-            // console.log('increment2', objectType, incrementTotal, incrementSession, this.totalBounces, this.sessionBounces)
+            // console.log('increment2', objectType, incrementTotal, incrementSession, this.totalPoints, this.sessionPoints)
             // Increment object-specific counter
             switch (objectType) {
                 case 'ball':
@@ -1416,23 +1460,23 @@ if (typeof Phaser === 'undefined') {
             }
 
             // Reset all counters
-            this.totalBounces = 0;
-            this.sessionBounces = 0;
+            this.totalPoints = 0;
+            this.sessionPoints = 0;
             this.ballBounces = 0;
             this.sunBounces = 0;
             this.cloudBounces = 0;
             this.ballStreak = 0;
             this.sunStreak = 0;
             this.cloudStreak = 0;
-            
+
             // Prevent counter updates during reset period
             this.counterUpdatesEnabled = false;
-            
+
             // Re-enable counters after 500ms to avoid counting initial object bounces
             setTimeout(() => {
                 this.counterUpdatesEnabled = true;
             }, 500);
-            
+
             this.updateCounters();
         }
 
@@ -1479,6 +1523,111 @@ if (typeof Phaser === 'undefined') {
 
             return newMuteState;
         }
+
+        // Toggle debug mode
+        toggleDebug() {
+            this.debugEnabled = !this.debugEnabled;
+            
+            // When enabling debug, enable all debug features
+            if (this.debugEnabled) {
+                this.debugHitAreas = true;
+                this.debugObjectSizes = true;
+                this.debugPhysics = true;
+                this.debugGrassArea = true;
+            } else {
+                // When disabling debug, disable all debug features
+                this.debugHitAreas = false;
+                this.debugObjectSizes = false;
+                this.debugPhysics = false;
+                this.debugGrassArea = false;
+            }
+            
+            return this.debugEnabled;
+        }
+
+        // Draw debug information
+        drawDebug() {
+            if (!this.debugEnabled) return;
+            
+            const graphics = this.add.graphics({ lineStyle: { width: 2, color: 0xff0000 }, fillStyle: { color: 0xff0000 } });
+            
+            // Draw grass boundary
+            if (this.debugGrassArea && this.grassHeight > 0) {
+                graphics.lineStyle(2, 0xffff00); // Yellow line for grass boundary
+                graphics.strokeRect(0, this.gameHeight - this.grassHeight, this.gameWidth, this.grassHeight);
+                
+                // Draw grass top boundary line
+                graphics.lineStyle(3, 0xff0000); // Red line for grass top
+                graphics.beginPath();
+                graphics.moveTo(0, this.gameHeight - this.grassHeight);
+                graphics.lineTo(this.gameWidth, this.gameHeight - this.grassHeight);
+                graphics.strokePath();
+            }
+            
+            // Draw object hit areas
+            if (this.debugHitAreas || this.debugObjectSizes) {
+                // Ball hit area
+                if (this.ball) {
+                    graphics.lineStyle(2, 0x00ff00); // Green for ball
+                    const ballRadius = this.ball.displayWidth / 2;
+                    graphics.strokeCircle(this.ball.x, this.ball.y, ballRadius);
+                    
+                    // Draw ball center cross
+                    graphics.lineStyle(1, 0x00ff00);
+                    graphics.beginPath();
+                    graphics.moveTo(this.ball.x - 10, this.ball.y);
+                    graphics.lineTo(this.ball.x + 10, this.ball.y);
+                    graphics.moveTo(this.ball.x, this.ball.y - 10);
+                    graphics.lineTo(this.ball.x, this.ball.y + 10);
+                    graphics.strokePath();
+                }
+                
+                // Sun hit area
+                if (this.sun) {
+                    graphics.lineStyle(2, 0xffff00); // Yellow for sun
+                    const sunRadius = this.sun.displayWidth / 2;
+                    graphics.strokeCircle(this.sun.x, this.sun.y, sunRadius);
+                    
+                    // Draw sun center cross
+                    graphics.lineStyle(1, 0xffff00);
+                    graphics.beginPath();
+                    graphics.moveTo(this.sun.x - 8, this.sun.y);
+                    graphics.lineTo(this.sun.x + 8, this.sun.y);
+                    graphics.moveTo(this.sun.x, this.sun.y - 8);
+                    graphics.lineTo(this.sun.x, this.sun.y + 8);
+                    graphics.strokePath();
+                }
+                
+                // Cloud hit areas
+                this.clouds.forEach(cloud => {
+                    graphics.lineStyle(2, 0x00ffff); // Cyan for clouds
+                    // Use the smaller of width/height for circle radius to fit within display bounds
+                    const cloudRadius = Math.min(cloud.displayWidth, cloud.displayHeight) / 2;
+                    graphics.strokeCircle(cloud.x, cloud.y, cloudRadius);
+                    
+                    // Draw cloud center cross
+                    graphics.lineStyle(1, 0x00ffff);
+                    graphics.beginPath();
+                    graphics.moveTo(cloud.x - 8, cloud.y);
+                    graphics.lineTo(cloud.x + 8, cloud.y);
+                    graphics.moveTo(cloud.x, cloud.y - 8);
+                    graphics.lineTo(cloud.x, cloud.y + 8);
+                    graphics.strokePath();
+                });
+            }
+            
+            // Physics body boundaries are now shown as half circles with the main objects
+            // (removed separate square drawing since we're using circular representations)
+            
+            // Draw screen boundaries
+            graphics.lineStyle(3, 0xffffff); // White for screen boundaries
+            graphics.strokeRect(0, 0, this.gameWidth, this.gameHeight);
+            
+            // Clean up graphics object
+            setTimeout(() => {
+                graphics.destroy();
+            }, 16); // Destroy after one frame
+        }
     }
 
     // Make game take up full screen with proper vertical resizing
@@ -1515,7 +1664,7 @@ if (typeof Phaser === 'undefined') {
         render: {
             pixelArt: false,
             antialias: true,
-            roundPixels: true
+            roundPixels: false // Set to false to prevent artifacts during dynamic resizing/rotation
         },
         backgroundColor: '#87CEEB', // Match sky color
         transparent: false, // Better performance and rendering on Safari
@@ -1535,39 +1684,34 @@ if (typeof Phaser === 'undefined') {
 
     // Handle window resize with object collision detection
     window.addEventListener('resize', () => {
-        const newSize = getGameSize();
+        // Use a small delay to allow mobile browsers to settle (e.g. address bar hiding)
+        setTimeout(() => {
+            const newSize = getGameSize();
 
-        // Directly resize the game canvas to fill screen
-        if (game.scale) {
-            game.scale.resize(newSize.width, newSize.height);
-        }
-
-        // Force canvas to stretch to fill container
-        const canvas = document.querySelector('canvas');
-        if (canvas) {
-            canvas.style.width = '100%';
-            canvas.style.height = '100%';
-            canvas.style.objectFit = 'fill';
-        }
-
-        // Update the game scene's dimensions
-        if (game.scene.scenes.length > 0) {
-            const scene = game.scene.scenes[0];
-            if (scene.gameWidth && scene.gameHeight) {
-                const oldWidth = scene.gameWidth;
-                const oldHeight = scene.gameHeight;
-                scene.gameWidth = newSize.width;
-                scene.gameHeight = newSize.height;
-
-                // Update world bounds to full new dimensions
-                if (scene.physics && scene.physics.world) {
-                    scene.physics.world.setBounds(0, 0, newSize.width, newSize.height);
-                }
-
-                // Handle object collisions with resized borders
-                scene.handleResizeCollisions(oldWidth, oldHeight, newSize.width, newSize.height);
+            // Directly resize the game canvas to fill screen
+            if (game.scale) {
+                game.scale.resize(newSize.width, newSize.height);
             }
-        }
+
+            // Update the game scene's dimensions
+            if (game.scene.scenes.length > 0) {
+                const scene = game.scene.scenes[0];
+                if (scene.gameWidth !== undefined && scene.gameHeight !== undefined) {
+                    const oldWidth = scene.gameWidth;
+                    const oldHeight = scene.gameHeight;
+                    scene.gameWidth = newSize.width;
+                    scene.gameHeight = newSize.height;
+
+                    // Update world bounds to full new dimensions
+                    if (scene.physics && scene.physics.world) {
+                        scene.physics.world.setBounds(0, 0, newSize.width, newSize.height);
+                    }
+
+                    // Handle object collisions with resized borders
+                    scene.handleResizeCollisions(oldWidth, oldHeight, newSize.width, newSize.height);
+                }
+            }
+        }, 100);
     });
 
     // Add reset button event listener
