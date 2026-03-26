@@ -29,14 +29,14 @@ if (typeof Phaser === 'undefined') {
             this.isDragging = false; // Track if an object is being dragged
             this.lastDragEndTime = 0; // Timestamp of last drag end
             this.counterUpdatesEnabled = true; // Allow counter updates by default
-            
+
             // Debug configuration
             this.debugEnabled = false; // Master debug switch
             this.debugHitAreas = false; // Show hit test areas
             this.debugObjectSizes = false; // Show object bounding boxes
             this.debugPhysics = false; // Show physics bodies
             this.debugGrassArea = false; // Show grass boundary
-            
+
             // Sound priority system removed (sounds play immediately)
         }
 
@@ -242,9 +242,9 @@ if (typeof Phaser === 'undefined') {
             this.sun.setImmovable(true);
             this.sun.setVelocity(0, 0);
 
-            // Set sun hitbox to full visual bounds to ensure it touches borders
-            const sunRadius = this.sun.width * 0.5; // Full width as radius
-            this.sun.body.setCircle(sunRadius, 0, 0); // centered full hitbox
+            // Set sun hitbox to 25% of width (half of previous size)
+            const sunRadius = this.sun.width * 0.25; 
+            this.sun.body.setCircle(sunRadius, this.sun.width * 0.25, this.sun.width * 0.25); // Centered hitbox
             this.sun.body.allowGravity = false;
             this.sun.body.onWorldBounds = true; // Enable world bounds events for sun
             this.sun.setDepth(10); // Sun stays in back
@@ -320,8 +320,8 @@ if (typeof Phaser === 'undefined') {
                 cloud.setImmovable(true);
                 cloud.body.allowGravity = false;
                 cloud.body.onWorldBounds = true; // Enable world bounds events for clouds
-                const cloudRadius = cloud.width * 0.5; // Full width as radius
-                cloud.body.setCircle(cloudRadius, 0, 0); // centered full hitbox
+                const cloudRadius = cloud.width * 0.25; // 25% of width as radius
+                cloud.body.setCircle(cloudRadius, cloud.width * 0.25, cloud.width * 0.25); // Centered hitbox
                 cloud.setFlipX(Math.random() < 0.5);
                 cloud.setAngle(Phaser.Math.Between(-5, 5));
                 cloud.setDepth(20); // Clouds stay in front of sun
@@ -347,7 +347,7 @@ if (typeof Phaser === 'undefined') {
                 if (event.key.length === 1) {
                     this.throwBallInDirection(true); // True means from keyboard
                 }
-                
+
                 // Debug toggle with D key
                 if (event.key === 'd' || event.key === 'D') {
                     const debugState = this.toggleDebug();
@@ -942,7 +942,7 @@ if (typeof Phaser === 'undefined') {
             }
 
             // Sound priority execution removed
-            
+
             // Draw debug information
             this.drawDebug();
 
@@ -1527,7 +1527,7 @@ if (typeof Phaser === 'undefined') {
         // Toggle debug mode
         toggleDebug() {
             this.debugEnabled = !this.debugEnabled;
-            
+
             // When enabling debug, enable all debug features
             if (this.debugEnabled) {
                 this.debugHitAreas = true;
@@ -1541,21 +1541,21 @@ if (typeof Phaser === 'undefined') {
                 this.debugPhysics = false;
                 this.debugGrassArea = false;
             }
-            
+
             return this.debugEnabled;
         }
 
         // Draw debug information
         drawDebug() {
             if (!this.debugEnabled) return;
-            
+
             const graphics = this.add.graphics({ lineStyle: { width: 2, color: 0xff0000 }, fillStyle: { color: 0xff0000 } });
-            
+
             // Draw grass boundary
             if (this.debugGrassArea && this.grassHeight > 0) {
                 graphics.lineStyle(2, 0xffff00); // Yellow line for grass boundary
                 graphics.strokeRect(0, this.gameHeight - this.grassHeight, this.gameWidth, this.grassHeight);
-                
+
                 // Draw grass top boundary line
                 graphics.lineStyle(3, 0xff0000); // Red line for grass top
                 graphics.beginPath();
@@ -1563,15 +1563,15 @@ if (typeof Phaser === 'undefined') {
                 graphics.lineTo(this.gameWidth, this.gameHeight - this.grassHeight);
                 graphics.strokePath();
             }
-            
+
             // Draw object hit areas
             if (this.debugHitAreas || this.debugObjectSizes) {
                 // Ball hit area
-                if (this.ball) {
+                if (this.ball && this.ball.body) {
                     graphics.lineStyle(2, 0x00ff00); // Green for ball
-                    const ballRadius = this.ball.displayWidth / 2;
+                    const ballRadius = this.ball.body.radius;
                     graphics.strokeCircle(this.ball.x, this.ball.y, ballRadius);
-                    
+
                     // Draw ball center cross
                     graphics.lineStyle(1, 0x00ff00);
                     graphics.beginPath();
@@ -1581,13 +1581,13 @@ if (typeof Phaser === 'undefined') {
                     graphics.lineTo(this.ball.x, this.ball.y + 10);
                     graphics.strokePath();
                 }
-                
+
                 // Sun hit area
-                if (this.sun) {
+                if (this.sun && this.sun.body) {
                     graphics.lineStyle(2, 0xffff00); // Yellow for sun
-                    const sunRadius = this.sun.displayWidth / 2;
+                    const sunRadius = this.sun.body.radius;
                     graphics.strokeCircle(this.sun.x, this.sun.y, sunRadius);
-                    
+
                     // Draw sun center cross
                     graphics.lineStyle(1, 0xffff00);
                     graphics.beginPath();
@@ -1597,14 +1597,14 @@ if (typeof Phaser === 'undefined') {
                     graphics.lineTo(this.sun.x, this.sun.y + 8);
                     graphics.strokePath();
                 }
-                
+
                 // Cloud hit areas
                 this.clouds.forEach(cloud => {
+                    if (!cloud.active || !cloud.body) return;
                     graphics.lineStyle(2, 0x00ffff); // Cyan for clouds
-                    // Use the smaller of width/height for circle radius to fit within display bounds
-                    const cloudRadius = Math.min(cloud.displayWidth, cloud.displayHeight) / 2;
+                    const cloudRadius = cloud.body.radius;
                     graphics.strokeCircle(cloud.x, cloud.y, cloudRadius);
-                    
+
                     // Draw cloud center cross
                     graphics.lineStyle(1, 0x00ffff);
                     graphics.beginPath();
@@ -1615,14 +1615,14 @@ if (typeof Phaser === 'undefined') {
                     graphics.strokePath();
                 });
             }
-            
+
             // Physics body boundaries are now shown as half circles with the main objects
             // (removed separate square drawing since we're using circular representations)
-            
+
             // Draw screen boundaries
             graphics.lineStyle(3, 0xffffff); // White for screen boundaries
             graphics.strokeRect(0, 0, this.gameWidth, this.gameHeight);
-            
+
             // Clean up graphics object
             setTimeout(() => {
                 graphics.destroy();
