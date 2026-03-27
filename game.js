@@ -67,27 +67,40 @@ if (typeof Phaser === 'undefined') {
             this.audioContextUnlocked = false;
 
             // Initialize sounds after first user interaction
+            // Initialize sounds immediately (but they are muted by Phaser's default state)
+            // They will be resumed/unlocked on first interaction.
+            this.throwSound = this.sound.add('throw', { volume: 0.25 });
+            this.ballSound = this.sound.add('ballSound', { volume: 0.2 });
+            this.sunSound = this.sound.add('sunSound', { volume: 0.25 });
+            this.cloudSound = this.sound.add('cloudSound', { volume: 0.25 });
+
+            // Initialize sounds after first user interaction
             const initializeSounds = () => {
                 if (this.audioContextUnlocked) return;
                 this.audioContextUnlocked = true;
 
-                // Set mute state BEFORE creating sound objects
-                // This ensures the mute state is applied to all new sounds
-                this.sound.mute = this.initialMuteState;
+                // Derive the target mute state from the UI button's current appearance.
+                const muteButton = document.getElementById('mute-button');
+                const isUIAlreadyUnmuted = muteButton ? !muteButton.classList.contains('muted') : !this.initialMuteState;
+                this.sound.mute = !isUIAlreadyUnmuted;
 
-                // For Safari, we might need to play a silent sound to unlock audio
+                // For Safari Specific: Use a native HTMLAudioElement to force unlock
                 if (this.isSafari()) {
-                    const emptySound = this.sound.add('throw', { volume: 0 });
-                    if (emptySound) {
-                        emptySound.play();
-                    }
+                    try {
+                        const unlockSound = new Audio();
+                        unlockSound.src = 'assets/audio/throw.mp3';
+                        unlockSound.volume = 0.01; // Tiny volume might help Safari acknowledge play
+                        unlockSound.play().then(() => {
+                            setTimeout(() => unlockSound.pause(), 10);
+                        }).catch(() => {});
+                    } catch (e) {}
                 }
 
-                // Now create the sound objects with the correct mute state
-                this.throwSound = this.sound.add('throw', { volume: 0.25 });
-                this.ballSound = this.sound.add('ballSound', { volume: 0.2 });
-                this.sunSound = this.sound.add('sunSound', { volume: 0.25 });
-                this.cloudSound = this.sound.add('cloudSound', { volume: 0.25 });
+                // Call Pharaoh's internal unlock if available
+                if (this.sound && typeof this.sound.unlock === 'function') {
+                    this.sound.unlock();
+                }
+            }
 
 
 
@@ -117,27 +130,18 @@ if (typeof Phaser === 'undefined') {
                         }, 50);
                     }
                 }, 100); // Increased timeout to ensure it runs after everything else
-            }
 
-            // Use direct DOM event listeners to capture first user interaction
+
             const handleFirstInteraction = () => {
-                // For Safari, we NEED to resume and unlock synchronously within the first interaction handler
-                if (this.sound.context) {
-                    if (typeof this.sound.context.resume === 'function') {
-                        this.sound.context.resume();
-                    }
+                // Ensure context is resumed synchronously
+                if (this.sound.context && typeof this.sound.context.resume === 'function') {
+                    this.sound.context.resume();
                 }
                 
-                // Also call Pharaoh's internal unlock if available
-                if (this.sound && typeof this.sound.unlock === 'function') {
-                    this.sound.unlock();
-                }
-
                 // Call initialize sounds synchronously! 
-                // Don't wait for any promise resolution, as Safari may drop the user gesture.
                 initializeSounds();
                 
-                console.log('Interaction detected: Audio system initialized synchronously');
+                console.log('Interaction detected: Audio system resumed synchronously');
 
                 window.removeEventListener('pointerdown', handleFirstInteraction);
                 window.removeEventListener('touchstart', handleFirstInteraction);
@@ -149,6 +153,9 @@ if (typeof Phaser === 'undefined') {
             window.addEventListener('touchstart', handleFirstInteraction);
             window.addEventListener('click', handleFirstInteraction);
             window.addEventListener('keydown', handleFirstInteraction);
+
+            // Safari sometimes pauses audio on blur (even briefly during UI transitions)
+            this.sound.pauseOnBlur = false;
 
             // Load saved mute state or default to unmuted (false)
             // We'll store this and apply it when sounds are initialized
@@ -511,8 +518,8 @@ if (typeof Phaser === 'undefined') {
                         const finalVelY = Math.sin(throwAngle) * throwSpeed;
                         gameObject.setVelocity(finalVelX, finalVelY);
 
-                        // Add rotation based on flick
-                        gameObject.setAngularVelocity(finalVelX * 0.75);
+                        // Add rotation based on flick (increased multiplier)
+                        gameObject.setAngularVelocity(finalVelX * 1.5);
 
                         // Play throw sound
                         const throwSound = this.getSound('throwSound');
@@ -573,8 +580,8 @@ if (typeof Phaser === 'undefined') {
             const throwSound = this.getSound('throwSound');
             if (throwSound && this.canPlayAudio()) throwSound.play();
 
-            // Set natural rotation based on horizontal velocity
-            this.ball.setAngularVelocity(this.ball.body.velocity.x * 0.75);
+            // Set natural rotation based on horizontal velocity (increased multiplier)
+            this.ball.setAngularVelocity(this.ball.body.velocity.x * 1.5);
 
             this.isBallMoving = true;
 
@@ -627,8 +634,8 @@ if (typeof Phaser === 'undefined') {
                 ballVelocity.y * 0.75
             );
 
-            // Add natural rotation based on horizontal velocity after bounce
-            ball.setAngularVelocity(ball.body.velocity.x * 0.75);
+            // Add natural rotation based on horizontal velocity after bounce (increased multiplier)
+            ball.setAngularVelocity(ball.body.velocity.x * 1.5);
 
             // Add rotation to cloud on bounce
             const rotationSpeed = Phaser.Math.Between(-1, 1); // Random rotation speed
@@ -638,8 +645,11 @@ if (typeof Phaser === 'undefined') {
             const cloudSound = this.getSound('cloudSound');
             if (ballSound && this.canPlayAudio()) ballSound.play();
             if (cloudSound && this.canPlayAudio()) cloudSound.play();
-            this.incrementBounceCounter('ball', true, true, true); // Increment both total and session once
-            this.incrementBounceCounter('cloud', true, false, false); // Don't increment total or session twice
+            // Don't count points/bounces when dragging
+            if (!this.isDragging) {
+                this.incrementBounceCounter('ball', false, true, true); // Don't play redundant sound here
+                this.incrementBounceCounter('cloud', false, false, false); // Don't play redundant sound here
+            }
         }
 
         handleBallSunCollision(ball, sun) {
@@ -675,8 +685,8 @@ if (typeof Phaser === 'undefined') {
                 ballVelocity.y * 0.75
             );
 
-            // Add natural rotation based on horizontal velocity after bounce
-            ball.setAngularVelocity(ball.body.velocity.x * 0.75);
+            // Add natural rotation based on horizontal velocity after bounce (increased multiplier)
+            ball.setAngularVelocity(ball.body.velocity.x * 1.5);
 
             // Add rotation to sun on bounce
             const rotationSpeed = Phaser.Math.Between(-0.5, 0.5); // Slower rotation for sun
@@ -688,10 +698,13 @@ if (typeof Phaser === 'undefined') {
             if (sunSound && this.canPlayAudio()) sunSound.play();
 
             // Scoring: 1st hit = 2pts, 2nd hit = 4pts, 3rd+ hit = 8pts
-            const sunPoints = this.sunStreak === 0 ? 2 : (this.sunStreak === 1 ? 4 : 8);
+            const sunPoints = this.sunStreak === 0 ? 2 : 4;
 
-            this.incrementBounceCounter('ball', false, true, true, sunPoints); // Add points to total/session
-            this.incrementBounceCounter('sun', false, false, false); // Increment sun hits counter only
+            // Don't count points/bounces when dragging
+            if (!this.isDragging) {
+                this.incrementBounceCounter('ball', false, true, true, sunPoints); // Add points to total/session
+                this.incrementBounceCounter('sun', false, false, false); // Increment sun hits counter only
+            }
         }
 
         // Add soft collision handling for cloud-cloud and cloud-sun collisions
@@ -740,8 +753,10 @@ if (typeof Phaser === 'undefined') {
             const cloudSound = this.getSound('cloudSound');
             if (cloudSound && this.canPlayAudio()) cloudSound.play();
 
-            // Increment bounce counter
-            this.incrementBounceCounter('cloud', true, true, true);
+            // Increment bounce counter (only when not dragging)
+            if (!this.isDragging) {
+                this.incrementBounceCounter('cloud', true, true, true);
+            }
         }
 
         handleCloudSunCollision(cloud, sun) {
@@ -791,9 +806,11 @@ if (typeof Phaser === 'undefined') {
             if (sunSound && this.canPlayAudio()) sunSound.play();
             if (cloudSound && this.canPlayAudio()) cloudSound.play();
 
-            // Increment bounce counter for cloud-sun collisions
-            this.incrementBounceCounter('sun', true, true, true);
-            this.incrementBounceCounter('cloud', true, false, false);
+            // Increment bounce counter for cloud-sun collisions (only when not dragging)
+            if (!this.isDragging) {
+                this.incrementBounceCounter('sun', true, true, true);
+                this.incrementBounceCounter('cloud', true, false, false);
+            }
         }
 
         handleResizeCollisions(oldWidth, oldHeight, newWidth, newHeight) {
@@ -958,7 +975,8 @@ if (typeof Phaser === 'undefined') {
                 this.isBallMoving = false;
                 this.ball.setVelocity(0, 0);
                 this.ball.setAngularVelocity(0);
-                this.ball.body.allowGravity = false; // Temporarily disable gravity to prevent floor jitter
+                // Keep gravity enabled so ball falls if not on ground
+                this.ball.body.allowGravity = true;
             }
 
             // Apply minimal damping to clouds to make them stop very gradually
@@ -1113,8 +1131,8 @@ if (typeof Phaser === 'undefined') {
                         const bounceVelocityX = this.ball.body.velocity.x * 0.9;
                         this.ball.setVelocity(bounceVelocityX, bounceVelocityY);
 
-                        // Add natural rotation from grass bounce
-                        this.ball.setAngularVelocity(bounceVelocityX * 0.75);
+                        // Add natural rotation from grass bounce (increased multiplier)
+                        this.ball.setAngularVelocity(bounceVelocityX * 1.5);
                     }
                 }
             }
@@ -1289,8 +1307,8 @@ if (typeof Phaser === 'undefined') {
             const throwSound = this.getSound('throwSound');
             if (throwSound && this.canPlayAudio()) throwSound.play();
 
-            // Set natural rotation based on horizontal velocity
-            this.ball.setAngularVelocity(velX * 0.75);
+            // Set natural rotation based on horizontal velocity (increased multiplier)
+            this.ball.setAngularVelocity(velX * 1.5);
 
             this.isBallMoving = true;
 
@@ -1345,7 +1363,8 @@ if (typeof Phaser === 'undefined') {
         // Helper method to detect Safari browser
         isSafari() {
             const userAgent = window.navigator.userAgent;
-            return userAgent.includes('Safari') && !userAgent.includes('Chrome') && !userAgent.includes('Chromium');
+            const isiOS = /iPad|iPhone|iPod/.test(userAgent) || (navigator.platform === 'MacIntel' && navigator.maxTouchPoints > 1);
+            return isiOS || (userAgent.includes('Safari') && !userAgent.includes('Chrome') && !userAgent.includes('Chromium'));
         }
 
         // Helper method to check if audio can be played
