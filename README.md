@@ -6,8 +6,9 @@ A simple, responsive HTML5 game built with Phaser.js where you can bounce a ball
 
 ## Screenshots
 
-![Desktop Version](screens/bouncingballgame_desktop.png)
-<img src="screens/bouncingballgame_mobile.png" alt="Mobile Version" width="300">
+| Mobile | Desktop |
+|--------|---------|
+| ![Mobile Version](screens/bouncingballgame_mobile.png) | ![Desktop Version](screens/bouncingballgame_desktop.png) |
 
 ## Features
 
