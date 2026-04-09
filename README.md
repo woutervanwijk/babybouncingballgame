@@ -4,6 +4,11 @@ A simple, responsive HTML5 game built with Phaser.js where you can bounce a ball
 
 **Play it here**: 🎮 [https://woutervanwijk.github.io/babybouncingballgame/](https://woutervanwijk.github.io/babybouncingballgame/)
 
+## Screenshots
+
+![Desktop Version](screens/bouncingballgame_desktop.png)
+![Mobile Version](screens/bouncingballgame_mobile.png)
+
 ## Features
 
 - **Simple Controls**: Click/tap anywhere to throw the ball
